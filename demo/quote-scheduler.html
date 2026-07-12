@@ -1,0 +1,405 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Quote Scheduler — Fosters Fencing</title>
+<style>
+  :root {
+    --ink: #20262b;
+    --ink-soft: #4a5259;
+    --paper: #eef0ec;
+    --paper-raised: #ffffff;
+    --line: #d7dbd3;
+    --steel: #6b7680;
+    --accent: #2b5fa3;
+    --accent-soft: #dce6f2;
+    --good: #3f7d53;
+    --good-soft: #e0ede3;
+    --wait: #a3762b;
+    --wait-soft: #f2e9da;
+    --focus: #2b5fa3;
+    --shadow: 0 1px 2px rgba(32, 38, 43, 0.06), 0 4px 12px rgba(32, 38, 43, 0.05);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ink: #e7e6e0;
+      --ink-soft: #a9b0aa;
+      --paper: #14181a;
+      --paper-raised: #1c2225;
+      --line: #2c3336;
+      --steel: #8b9399;
+      --accent: #6f9fdc;
+      --accent-soft: #22344a;
+      --good: #7dbf94;
+      --good-soft: #1e332a;
+      --wait: #d9a95c;
+      --wait-soft: #35291a;
+      --focus: #6f9fdc;
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 6px 16px rgba(0, 0, 0, 0.35);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ink: #e7e6e0;
+    --ink-soft: #a9b0aa;
+    --paper: #14181a;
+    --paper-raised: #1c2225;
+    --line: #2c3336;
+    --steel: #8b9399;
+    --accent: #6f9fdc;
+    --accent-soft: #22344a;
+    --good: #7dbf94;
+    --good-soft: #1e332a;
+    --wait: #d9a95c;
+    --wait-soft: #35291a;
+    --focus: #6f9fdc;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 6px 16px rgba(0, 0, 0, 0.35);
+  }
+  :root[data-theme="light"] {
+    --ink: #20262b;
+    --ink-soft: #4a5259;
+    --paper: #eef0ec;
+    --paper-raised: #ffffff;
+    --line: #d7dbd3;
+    --steel: #6b7680;
+    --accent: #2b5fa3;
+    --accent-soft: #dce6f2;
+    --good: #3f7d53;
+    --good-soft: #e0ede3;
+    --wait: #a3762b;
+    --wait-soft: #f2e9da;
+    --focus: #2b5fa3;
+    --shadow: 0 1px 2px rgba(32, 38, 43, 0.06), 0 4px 12px rgba(32, 38, 43, 0.05);
+  }
+
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--paper);
+    color: var(--ink);
+  }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    line-height: 1.45;
+    padding: clamp(16px, 4vw, 48px);
+    max-width: 920px;
+    margin: 0 auto;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+  }
+
+  header.page {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 22px;
+  }
+  .eyebrow {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--steel);
+  }
+  h1 {
+    font-size: clamp(24px, 3.4vw, 32px);
+    margin: 0;
+    text-wrap: balance;
+    letter-spacing: -0.01em;
+  }
+  .lede {
+    color: var(--ink-soft);
+    font-size: 14.5px;
+    max-width: 62ch;
+    margin: 2px 0 0;
+  }
+
+  .stat-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 10px;
+    margin: 20px 0 26px;
+  }
+  .stat {
+    background: var(--paper-raised);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 12px 14px;
+    box-shadow: var(--shadow);
+  }
+  .stat .n {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace;
+    font-size: 22px;
+    font-variant-numeric: tabular-nums;
+    display: block;
+  }
+  .stat .label {
+    font-size: 12px;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .banner {
+    background: var(--accent-soft);
+    border: 1px solid var(--accent);
+    border-radius: 10px;
+    padding: 12px 16px;
+    font-size: 13.5px;
+    color: var(--ink);
+    margin-bottom: 26px;
+  }
+  .banner strong { color: var(--accent); }
+
+  .list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .card {
+    background: var(--paper-raised);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 16px 18px;
+    box-shadow: var(--shadow);
+    display: grid;
+    gap: 12px;
+  }
+  .card.is-example { opacity: 0.82; }
+
+  .card-top {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .quote-id {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace;
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+  }
+  .badges { display: flex; gap: 6px; flex-wrap: wrap; }
+  .badge {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 3px 8px;
+    border-radius: 100px;
+    white-space: nowrap;
+  }
+  .badge.approved { background: var(--good-soft); color: var(--good); }
+  .badge.client-reply { background: var(--wait-soft); color: var(--wait); }
+  .badge.example { background: var(--line); color: var(--ink-soft); }
+
+  .detail {
+    font-size: 14px;
+    color: var(--ink-soft);
+  }
+  .detail .who { color: var(--ink); font-weight: 600; }
+
+  .schedule-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    padding-top: 10px;
+    border-top: 1px dashed var(--line);
+  }
+  label.field {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    font-size: 11px;
+    color: var(--ink-soft);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  input[type="date"], input[type="time"], select {
+    font: inherit;
+    font-size: 14px;
+    color: var(--ink);
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    padding: 6px 8px;
+  }
+  input:focus-visible, select:focus-visible, button:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+
+  button.add-cal {
+    margin-left: auto;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    color: #fff;
+    background: var(--accent);
+    border: none;
+    border-radius: 8px;
+    padding: 9px 16px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: filter 0.15s ease;
+  }
+  button.add-cal:hover { filter: brightness(1.08); }
+  button.add-cal:disabled {
+    background: var(--line);
+    color: var(--ink-soft);
+    cursor: not-allowed;
+    filter: none;
+  }
+
+  footer.page {
+    margin-top: 34px;
+    padding-top: 16px;
+    border-top: 1px solid var(--line);
+    font-size: 12.5px;
+    color: var(--ink-soft);
+  }
+  footer.page a { color: var(--accent); }
+</style>
+</head>
+<body>
+
+<header class="page">
+  <span class="eyebrow">Fosters Fencing · Job scheduling</span>
+  <h1>Approved quotes, ready to book in</h1>
+  <p class="lede">Pulled from Invoice2go approval emails and client replies that name a quote number. Pick a date and time for each job, then send it straight to Google Calendar.</p>
+</header>
+
+<div class="stat-row" id="statRow"></div>
+
+<div class="banner">
+  <strong>Demo data.</strong> QT11019 below is a real approval pulled from your inbox on 12&nbsp;Jul&nbsp;2026. The three <em>Example</em> rows are placeholders — fictional names and quote numbers — so you can see how the list fills out once more approvals and client replies come in. See <code>docs/email-parsing-rules.md</code> for the detection rules this is built on.
+</div>
+
+<div class="list" id="list"></div>
+
+<footer class="page">
+  Quote numbers run consecutively from QT10001. Rows are sorted oldest quote number first. Times below are Perth (Australia/Perth) local time.
+</footer>
+
+<script>
+  const quotes = [
+    {
+      id: "QT10001",
+      example: true,
+      source: "client-reply",
+      who: "Example Client — R. Sanders",
+      note: "Replied to estimate email: “Happy to go ahead with QT10001, when can you fit us in?”",
+      location: "Sample Rd, Demo Suburb"
+    },
+    {
+      id: "QT10774",
+      example: true,
+      source: "approved",
+      who: "Example Client — J. Whitmore",
+      note: "Invoice2go: Estimate QT10774 was approved",
+      location: "Placeholder Ave, Demo Suburb"
+    },
+    {
+      id: "QT10982",
+      example: true,
+      source: "client-reply",
+      who: "Example Client — M. Doyle",
+      note: "Replied: “yes please proceed with quote QT10982”",
+      location: "Trial St, Demo Suburb"
+    },
+    {
+      id: "QT11019",
+      example: false,
+      source: "approved",
+      who: "Client name not in notification — check Invoice2go",
+      note: "Invoice2go: Estimate QT11019 was approved (received 12 Jul 2026, 7:02pm)",
+      location: ""
+    }
+  ].sort((a, b) => parseInt(a.id.slice(2)) - parseInt(b.id.slice(2)));
+
+  const listEl = document.getElementById("list");
+  const statRow = document.getElementById("statRow");
+
+  const approvedCount = quotes.filter(q => q.source === "approved").length;
+  const replyCount = quotes.filter(q => q.source === "client-reply").length;
+  const realCount = quotes.filter(q => !q.example).length;
+
+  statRow.innerHTML = `
+    <div class="stat"><span class="n">${quotes.length}</span><span class="label">Awaiting a booking</span></div>
+    <div class="stat"><span class="n">${approvedCount}</span><span class="label">Invoice2go approvals</span></div>
+    <div class="stat"><span class="n">${replyCount}</span><span class="label">Client "go ahead" replies</span></div>
+    <div class="stat"><span class="n">${realCount}</span><span class="label">From your real inbox</span></div>
+  `;
+
+  function pad(n) { return String(n).padStart(2, "0"); }
+
+  function buildCalendarUrl(quote, dateStr, startTime, endTime) {
+    const title = encodeURIComponent(`${quote.id} — ${quote.who}${quote.location ? " (" + quote.location + ")" : ""}`);
+    const details = encodeURIComponent(quote.note + "\n\nQuote: " + quote.id);
+    const location = encodeURIComponent(quote.location || "");
+    const start = dateStr.replace(/-/g, "") + "T" + startTime.replace(":", "") + "00";
+    const end = dateStr.replace(/-/g, "") + "T" + endTime.replace(":", "") + "00";
+    return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${start}/${end}&details=${details}&location=${location}&ctz=Australia/Perth`;
+  }
+
+  quotes.forEach((quote, i) => {
+    const card = document.createElement("div");
+    card.className = "card" + (quote.example ? " is-example" : "");
+
+    const sourceBadge = quote.source === "approved"
+      ? `<span class="badge approved">Invoice2go approved</span>`
+      : `<span class="badge client-reply">Client said go ahead</span>`;
+
+    card.innerHTML = `
+      <div class="card-top">
+        <span class="quote-id">${quote.id}</span>
+        <div class="badges">
+          ${sourceBadge}
+          ${quote.example ? '<span class="badge example">Example</span>' : ""}
+        </div>
+      </div>
+      <div class="detail"><span class="who">${quote.who}</span> — ${quote.note}</div>
+      <div class="schedule-row">
+        <label class="field">Date
+          <input type="date" data-role="date" />
+        </label>
+        <label class="field">Start
+          <input type="time" data-role="start" value="08:00" />
+        </label>
+        <label class="field">End
+          <input type="time" data-role="end" value="10:00" />
+        </label>
+        <button class="add-cal" type="button" disabled>Add to Calendar</button>
+      </div>
+    `;
+
+    const dateInput = card.querySelector('[data-role="date"]');
+    const startInput = card.querySelector('[data-role="start"]');
+    const endInput = card.querySelector('[data-role="end"]');
+    const addBtn = card.querySelector(".add-cal");
+
+    function refreshState() {
+      addBtn.disabled = !dateInput.value;
+    }
+    [dateInput, startInput, endInput].forEach(el => el.addEventListener("input", refreshState));
+    refreshState();
+
+    addBtn.addEventListener("click", () => {
+      if (!dateInput.value) return;
+      const url = buildCalendarUrl(quote, dateInput.value, startInput.value || "08:00", endInput.value || "10:00");
+      window.open(url, "_blank", "noopener");
+    });
+
+    listEl.appendChild(card);
+  });
+</script>
+
+</body>
+</html>

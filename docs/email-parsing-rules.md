@@ -43,7 +43,9 @@ Separate from approvals, an **enquiry** is a prospective client asking for a quo
    Location <suburb>
    Message <job description>
    ```
-   The `Location` field is what the enquiries page groups by suburb — it's free text as typed into the website form, so suburb names aren't guaranteed to match a fixed list (e.g. postcodes sometimes included, sometimes not).
+   The `Location` field is what the enquiries page groups by suburb — it's free text as typed into the website form, so suburb names aren't guaranteed to match a fixed list (e.g. postcodes sometimes included, sometimes not, case varies).
+
+   `demo/enquiries.html` normalizes this before grouping (`normalizeSuburb()`): trims whitespace, splits off a trailing 4-digit postcode, splits on the first comma to separate a suburb from a region/LGA note (e.g. "Success, Cockburn" → suburb "Success", region "Cockburn"), and title-cases the result. Entries where the source text is too garbled or truncated to resolve to a suburb at all (flagged `unclear: true` in the data) are kept out of the alphabetical grouping entirely and shown in a separate "Needs suburb confirmation" bucket with the original text quoted — better to flag for a human than silently misfile them.
 
 2. **Other direct quote-request emails**
    Any inbound email (not from Invoice2go, not a cloudmail forward) whose body asks for a quote/estimate — heuristically, contains words like "quote", "estimate", "enquiry" near a suburb name or address. These are messier to parse automatically than the cloudmail format since there's no fixed structure; a real implementation would likely need an LLM pass to pull out name/suburb/job rather than pure regex.

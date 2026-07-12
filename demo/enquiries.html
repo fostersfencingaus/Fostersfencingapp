@@ -268,6 +268,7 @@
   }
   .badge.fresh { background: var(--good-soft); color: var(--good); }
   .badge.archived { background: var(--line); color: var(--ink-soft); }
+  .badge.review { background: var(--gold-soft); color: var(--wait); }
 
   .contact {
     font-size: 13px;
@@ -341,12 +342,15 @@
 </div>
 
 <script>
+  // `raw` is exactly what the source email contained (as typed into the
+  // website form, or copied from the email body) — never edited by hand.
+  // normalizeSuburb() below turns that into a clean grouping key.
   const current = [
     {
       who: "David Fallows",
       email: "davidfallows@outlook.com.au",
       phone: "08 9343 6595",
-      suburb: "Greenwood",
+      raw: "GREENWOOD",
       job: "Colorbond fence, 35m, asbestos removal",
       source: "Cloudmail contact form (fostersfencing@cloudmail.net.au)",
       date: "12 Jul 2026"
@@ -354,27 +358,62 @@
   ];
 
   const archived = [
-    { who: "Rue", suburb: "Banksia Grove 6031", job: "Fence/wall services", source: "homeimprovementpages.com.au direct enquiry", date: "27 May 2014" },
-    { who: "Alberto", suburb: "Coogee 6166", job: "Fencing services", source: "homeimprovementpages.com.au direct enquiry", date: "4 May 2014" },
-    { who: "Kannie", suburb: "Balga 6061", job: "Gates, supply & install", source: "homeimprovementpages.com.au direct enquiry", date: "30 Mar 2014" },
-    { who: "Kenneth", suburb: "Kingsley 6026", job: "Gates services", source: "homeimprovementpages.com.au direct enquiry", date: "10 Mar 2014" },
-    { who: "Gemma", suburb: "Warwick 6024", job: "Side gates services", source: "homeimprovementpages.com.au direct enquiry", date: "7 Mar 2014" },
-    { who: "Dennis", suburb: "Mirrabooka 6061", job: "Fencing services", source: "homeimprovementpages.com.au direct enquiry", date: "28 Oct 2013" },
-    { who: "Christine", suburb: "Westminster 6061", job: "Fencing / quotation services", source: "homeimprovementpages.com.au direct enquiry", date: "24 Sep 2013" },
-    { who: "Ken Suprana", suburb: "Harrisdale 6112", job: "Aluminium slat gate, supply & install incl. latches", source: "Direct email enquiry", date: "18 Feb 2014" },
-    { who: "N. Hofstee", suburb: "Aveley", job: "2x aluminium slat gates, measure & quote", source: "Direct email enquiry", date: "6 Mar 2014" },
-    { who: "Amanda", suburb: "North (suburb not specified)", job: "Picket fence, supply & install", source: "Direct email enquiry", date: "30 Jan 2014" },
-    { who: "ckmasuku", suburb: "Landsdale", job: "Boundary fencing, Stockland Corimbia estate", source: "Direct email enquiry", date: "6 Feb 2014" },
-    { who: "ajcjnapier", suburb: "Success (Cockburn)", job: "Pool fencing ahead of pool install", source: "Direct email enquiry", date: "17 Sep 2013" }
+    { who: "Rue", raw: "Banksia Grove 6031", job: "Fence/wall services", source: "homeimprovementpages.com.au direct enquiry", date: "27 May 2014" },
+    { who: "Alberto", raw: "Coogee 6166", job: "Fencing services", source: "homeimprovementpages.com.au direct enquiry", date: "4 May 2014" },
+    { who: "Kannie", raw: "Balga 6061", job: "Gates, supply & install", source: "homeimprovementpages.com.au direct enquiry", date: "30 Mar 2014" },
+    { who: "Kenneth", raw: "Kingsley 6026", job: "Gates services", source: "homeimprovementpages.com.au direct enquiry", date: "10 Mar 2014" },
+    { who: "Gemma", raw: "Warwick 6024", job: "Side gates services", source: "homeimprovementpages.com.au direct enquiry", date: "7 Mar 2014" },
+    { who: "Dennis", raw: "Mirrabooka 6061", job: "Fencing services", source: "homeimprovementpages.com.au direct enquiry", date: "28 Oct 2013" },
+    { who: "Christine", raw: "Westminster 6061", job: "Fencing / quotation services", source: "homeimprovementpages.com.au direct enquiry", date: "24 Sep 2013" },
+    { who: "Ken Suprana", raw: "Harrisdale 6112", job: "Aluminium slat gate, supply & install incl. latches", source: "Direct email enquiry", date: "18 Feb 2014" },
+    { who: "N. Hofstee", raw: "Aveley", job: "2x aluminium slat gates, measure & quote", source: "Direct email enquiry", date: "6 Mar 2014" },
+    { who: "ckmasuku", raw: "Landsdale", job: "Boundary fencing, Stockland Corimbia estate", source: "Direct email enquiry", date: "6 Feb 2014" },
+    { who: "ajcjnapier", raw: "Success, Cockburn", job: "Pool fencing ahead of pool install", source: "Direct email enquiry", date: "17 Sep 2013" },
+    { who: "Amanda", raw: "our home in North...", job: "Picket fence, supply & install", source: "Direct email enquiry (message cut off mid-word in the source)", date: "30 Jan 2014", unclear: true }
   ];
+
+  // Cleans up free-typed locations: strips a trailing WA postcode into its
+  // own field, drops stray commas, and title-cases the rest — so "GREENWOOD"
+  // and a future "Greenwood 6024" would group under the same heading instead
+  // of splitting in two. Entries flagged `unclear` (truncated or too vague
+  // to resolve, like Amanda's cut-off "in North...") skip this and land in
+  // their own review bucket rather than being silently misgrouped.
+  function normalizeSuburb(raw) {
+    // Only split on the first comma — "Success, Cockburn" is a suburb plus
+    // its local government area, not two suburb names to merge together.
+    const [mainPart, ...rest] = raw.split(",");
+    const region = rest.join(",").replace(/\s+/g, " ").trim();
+    let text = mainPart.replace(/\s+/g, " ").trim();
+    const postcodeMatch = text.match(/\b(\d{4})\b/);
+    const postcode = postcodeMatch ? postcodeMatch[1] : null;
+    if (postcode) text = text.replace(postcode, "").trim();
+    const name = text
+      .toLowerCase()
+      .split(" ")
+      .filter(Boolean)
+      .map(w => w[0].toUpperCase() + w.slice(1))
+      .join(" ");
+    return { name, postcode, region: region || null };
+  }
 
   function groupBySuburb(list) {
     const groups = {};
+    const needsReview = [];
     list.forEach(item => {
-      if (!groups[item.suburb]) groups[item.suburb] = [];
-      groups[item.suburb].push(item);
+      if (item.unclear) {
+        needsReview.push(item);
+        return;
+      }
+      const { name, postcode, region } = normalizeSuburb(item.raw);
+      const enriched = { ...item, postcode, region };
+      if (!groups[name]) groups[name] = [];
+      groups[name].push(enriched);
     });
-    return Object.keys(groups).sort().map(suburb => ({ suburb, items: groups[suburb] }));
+    const clean = Object.keys(groups).sort().map(suburb => ({ suburb, items: groups[suburb] }));
+    if (needsReview.length) {
+      clean.push({ suburb: "Needs suburb confirmation", items: needsReview, review: true });
+    }
+    return clean;
   }
 
   function renderGroups(containerId, groups, archived) {
@@ -388,12 +427,13 @@
               <div class="card-top">
                 <span class="who">${item.who}</span>
                 <div class="badges">
-                  <span class="badge ${archived ? "archived" : "fresh"}">${archived ? "Archived" : "New"}</span>
+                  ${g.review ? '<span class="badge review">Check suburb</span>' : `<span class="badge ${archived ? "archived" : "fresh"}">${archived ? "Archived" : "New"}</span>`}
                 </div>
               </div>
               <div class="job">${item.job}</div>
               ${item.email || item.phone ? `<div class="contact">${[item.phone, item.email].filter(Boolean).join(" · ")}</div>` : ""}
-              <div class="meta">${item.source} — ${item.date}</div>
+              ${g.review ? `<div class="meta">Source text: "${item.raw}"</div>` : ""}
+              <div class="meta">${item.source}${item.postcode ? " — WA " + item.postcode : ""}${item.region ? " (" + item.region + ")" : ""} — ${item.date}</div>
             </div>
           `).join("")}
         </div>
@@ -404,9 +444,10 @@
   renderGroups("current", groupBySuburb(current), false);
   renderGroups("archived", groupBySuburb(archived), true);
 
+  const currentSuburbs = new Set(current.filter(c => !c.unclear).map(c => normalizeSuburb(c.raw).name));
   document.getElementById("statRow").innerHTML = `
     <div class="stat"><span class="n">${current.length}</span><span class="label">Fresh enquiries</span></div>
-    <div class="stat"><span class="n">${new Set(current.map(c => c.suburb)).size}</span><span class="label">Active suburbs</span></div>
+    <div class="stat"><span class="n">${currentSuburbs.size}</span><span class="label">Active suburbs</span></div>
     <div class="stat"><span class="n">${archived.length}</span><span class="label">Archived (2013–2014)</span></div>
   `;
 </script>

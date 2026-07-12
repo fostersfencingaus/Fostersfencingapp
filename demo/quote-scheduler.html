@@ -6,71 +6,83 @@
 <title>Quote Scheduler — Fosters Fencing</title>
 <style>
   :root {
-    --ink: #20262b;
-    --ink-soft: #4a5259;
-    --paper: #eef0ec;
+    --ink: #142235;
+    --ink-soft: #51637a;
+    --paper: #eef1f6;
     --paper-raised: #ffffff;
-    --line: #d7dbd3;
-    --steel: #6b7680;
-    --accent: #2b5fa3;
-    --accent-soft: #dce6f2;
+    --line: #d7dee6;
+    --steel: #6b7887;
+    --accent: #163b6b;
+    --accent-soft: #e2e9f3;
+    --gold: #b9852a;
+    --gold-soft: #f6ecd6;
+    --brand-red: #b8262a;
     --good: #3f7d53;
     --good-soft: #e0ede3;
-    --wait: #a3762b;
-    --wait-soft: #f2e9da;
-    --focus: #2b5fa3;
-    --shadow: 0 1px 2px rgba(32, 38, 43, 0.06), 0 4px 12px rgba(32, 38, 43, 0.05);
+    --wait: #b9852a;
+    --wait-soft: #f6ecd6;
+    --focus: #163b6b;
+    --shadow: 0 1px 2px rgba(20, 34, 53, 0.07), 0 4px 12px rgba(20, 34, 53, 0.06);
   }
 
   @media (prefers-color-scheme: dark) {
     :root {
-      --ink: #e7e6e0;
-      --ink-soft: #a9b0aa;
-      --paper: #14181a;
-      --paper-raised: #1c2225;
-      --line: #2c3336;
-      --steel: #8b9399;
-      --accent: #6f9fdc;
-      --accent-soft: #22344a;
+      --ink: #e8ecf1;
+      --ink-soft: #a9b5c4;
+      --paper: #0e1620;
+      --paper-raised: #161f2b;
+      --line: #263242;
+      --steel: #8592a2;
+      --accent: #6c9bdb;
+      --accent-soft: #1d2c40;
+      --gold: #dfb151;
+      --gold-soft: #372c14;
+      --brand-red: #e2585b;
       --good: #7dbf94;
       --good-soft: #1e332a;
-      --wait: #d9a95c;
-      --wait-soft: #35291a;
-      --focus: #6f9fdc;
+      --wait: #dfb151;
+      --wait-soft: #372c14;
+      --focus: #6c9bdb;
       --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 6px 16px rgba(0, 0, 0, 0.35);
     }
   }
   :root[data-theme="dark"] {
-    --ink: #e7e6e0;
-    --ink-soft: #a9b0aa;
-    --paper: #14181a;
-    --paper-raised: #1c2225;
-    --line: #2c3336;
-    --steel: #8b9399;
-    --accent: #6f9fdc;
-    --accent-soft: #22344a;
+    --ink: #e8ecf1;
+    --ink-soft: #a9b5c4;
+    --paper: #0e1620;
+    --paper-raised: #161f2b;
+    --line: #263242;
+    --steel: #8592a2;
+    --accent: #6c9bdb;
+    --accent-soft: #1d2c40;
+    --gold: #dfb151;
+    --gold-soft: #372c14;
+    --brand-red: #e2585b;
     --good: #7dbf94;
     --good-soft: #1e332a;
-    --wait: #d9a95c;
-    --wait-soft: #35291a;
-    --focus: #6f9fdc;
+    --wait: #dfb151;
+    --wait-soft: #372c14;
+    --focus: #6c9bdb;
     --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 6px 16px rgba(0, 0, 0, 0.35);
   }
   :root[data-theme="light"] {
-    --ink: #20262b;
-    --ink-soft: #4a5259;
-    --paper: #eef0ec;
+    --ink: #142235;
+    --ink-soft: #51637a;
+    --paper: #eef1f6;
     --paper-raised: #ffffff;
-    --line: #d7dbd3;
-    --steel: #6b7680;
-    --accent: #2b5fa3;
-    --accent-soft: #dce6f2;
+    --line: #d7dee6;
+    --steel: #6b7887;
+    --accent: #163b6b;
+    --accent-soft: #e2e9f3;
+    --gold: #b9852a;
+    --gold-soft: #f6ecd6;
+    --brand-red: #b8262a;
     --good: #3f7d53;
     --good-soft: #e0ede3;
-    --wait: #a3762b;
-    --wait-soft: #f2e9da;
-    --focus: #2b5fa3;
-    --shadow: 0 1px 2px rgba(32, 38, 43, 0.06), 0 4px 12px rgba(32, 38, 43, 0.05);
+    --wait: #b9852a;
+    --wait-soft: #f6ecd6;
+    --focus: #163b6b;
+    --shadow: 0 1px 2px rgba(20, 34, 53, 0.07), 0 4px 12px rgba(20, 34, 53, 0.06);
   }
 
   * { box-sizing: border-box; }
@@ -83,7 +95,6 @@
   body {
     font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
     line-height: 1.45;
-    padding: clamp(16px, 4vw, 48px);
     max-width: 920px;
     margin: 0 auto;
   }
@@ -91,11 +102,41 @@
     * { animation: none !important; transition: none !important; }
   }
 
+  .brandbar {
+    height: 6px;
+    background: linear-gradient(90deg, var(--accent) 0%, #2f5c9c 55%, var(--gold) 100%);
+  }
+  .page-pad {
+    padding: clamp(16px, 4vw, 48px);
+  }
+
   header.page {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    margin-bottom: 22px;
+  }
+  .badge-mark {
+    flex: none;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 3px solid var(--gold);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace;
+    font-weight: 700;
+    font-size: 15px;
+    color: var(--brand-red);
+    letter-spacing: -0.02em;
+    margin-top: 2px;
+  }
+  .header-text {
     display: flex;
     flex-direction: column;
     gap: 6px;
-    margin-bottom: 22px;
   }
   .eyebrow {
     font-family: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace;
@@ -181,8 +222,9 @@
   .quote-id {
     font-family: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace;
     font-size: 18px;
-    font-weight: 600;
+    font-weight: 700;
     letter-spacing: 0.01em;
+    color: var(--accent);
   }
   .badges { display: flex; gap: 6px; flex-wrap: wrap; }
   .badge {
@@ -270,10 +312,17 @@
 </head>
 <body>
 
+<div class="brandbar" aria-hidden="true"></div>
+
+<div class="page-pad">
+
 <header class="page">
-  <span class="eyebrow">Fosters Fencing · Job scheduling</span>
-  <h1>Approved quotes, ready to book in</h1>
-  <p class="lede">Pulled from Invoice2go approval emails and client replies that name a quote number. Pick a date and time for each job, then send it straight to Google Calendar.</p>
+  <div class="badge-mark" aria-hidden="true">FF</div>
+  <div class="header-text">
+    <span class="eyebrow">Fosters Fencing · Job scheduling</span>
+    <h1>Approved quotes, ready to book in</h1>
+    <p class="lede">Pulled from Invoice2go approval emails and client replies that name a quote number. Pick a date and time for each job, then send it straight to Google Calendar.</p>
+  </div>
 </header>
 
 <div class="stat-row" id="statRow"></div>
@@ -287,6 +336,8 @@
 <footer class="page">
   Quote numbers run consecutively from QT10001. Rows are sorted oldest quote number first. Times below are Perth (Australia/Perth) local time.
 </footer>
+
+</div>
 
 <script>
   const quotes = [

@@ -30,6 +30,24 @@ The list in `demo/quote-scheduler.html` is populated by hand, from a one-off Gma
 
 Note: most day-to-day enquiry and reply traffic currently lands in `fostersfencing@hotmail.com.au`, a separate mailbox, and only reaches this Gmail account when manually forwarded. A real integration needs to watch whichever mailbox Invoice2go and clients actually reply to.
 
+## Detecting new enquiries (for `demo/enquiries.html`)
+
+Separate from approvals, an **enquiry** is a prospective client asking for a quote/estimate for the first time — no quote number exists yet. Two sources feed this list:
+
+1. **Cloudmail contact-form forwards**
+   Sent from `fostersfencing@cloudmail.net.au`, subject `Fosters Enquiry` (or `FW: Fosters Enquiry` once forwarded on). Body is structured plain text:
+   ```
+   Name <name>
+   Email <email>
+   Phone <phone>
+   Location <suburb>
+   Message <job description>
+   ```
+   The `Location` field is what the enquiries page groups by suburb — it's free text as typed into the website form, so suburb names aren't guaranteed to match a fixed list (e.g. postcodes sometimes included, sometimes not).
+
+2. **Other direct quote-request emails**
+   Any inbound email (not from Invoice2go, not a cloudmail forward) whose body asks for a quote/estimate — heuristically, contains words like "quote", "estimate", "enquiry" near a suburb name or address. These are messier to parse automatically than the cloudmail format since there's no fixed structure; a real implementation would likely need an LLM pass to pull out name/suburb/job rather than pure regex.
+
 ## What a real app version needs
 
 To make this run unattended instead of being populated by hand:

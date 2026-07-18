@@ -1044,9 +1044,11 @@
     return clean;
   }
 
-  function renderGroups(containerId, groups, archived) {
-    const el = document.getElementById(containerId);
-    el.innerHTML = groups.map(g => `
+  // Shared by the "archived" list (rendered straight into a container) and
+  // the current-week/older-week buckets (rendered into an HTML string first
+  // so it can be combined with the week heading/details markup).
+  function groupsToHtml(groups, archived) {
+    return groups.map(g => `
       <section class="suburb-group">
         <h2 class="suburb-name">${g.suburb} <span class="count">${g.items.length} ${g.items.length === 1 ? "enquiry" : "enquiries"}</span></h2>
         <div class="list">
@@ -1069,28 +1071,8 @@
     `).join("");
   }
 
-  function groupsToHtml(groups) {
-    return groups.map(g => `
-      <section class="suburb-group">
-        <h2 class="suburb-name">${g.suburb} <span class="count">${g.items.length} ${g.items.length === 1 ? "enquiry" : "enquiries"}</span></h2>
-        <div class="list">
-          ${g.items.map(item => `
-            <div class="card">
-              <div class="card-top">
-                <span class="who">${item.who}</span>
-                <div class="badges">
-                  ${g.review ? '<span class="badge review">Check suburb</span>' : '<span class="badge fresh">New</span>'}
-                </div>
-              </div>
-              <div class="job">${item.job}</div>
-              ${item.email || item.phone ? `<div class="contact">${[item.phone, item.email].filter(Boolean).join(" · ")}</div>` : ""}
-              ${g.review ? `<div class="meta">Source text: "${item.raw}"</div>` : ""}
-              <div class="meta">${item.source}${item.postcode ? " — WA " + item.postcode : ""}${item.region ? " (" + item.region + ")" : ""} — ${item.date}</div>
-            </div>
-          `).join("")}
-        </div>
-      </section>
-    `).join("");
+  function renderGroups(containerId, groups, archived) {
+    document.getElementById(containerId).innerHTML = groupsToHtml(groups, archived);
   }
 
   // Turns a free-typed "18 Jul 2026" style date into a real Date object so

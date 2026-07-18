@@ -26,7 +26,7 @@ Go-ahead intent (near a quote number): /(go\s*ahead|proceed|accept(ed)?|book (us
 
 ## Current state (this demo)
 
-The list in `demo/quote-scheduler.html` is populated by hand, from a one-off Gmail search over `fostersfencing.aus@gmail.com`. Only one real match exists there so far: `QT11019`, approved 12 Jul 2026. Everything else in the demo is fictional placeholder data, clearly labeled "Example".
+The list in `demo/quote-scheduler.html` is kept up to date by hand, from a recurring Gmail search over `fostersfencing.aus@gmail.com` (checked periodically, not yet a live integration — see below). As of 18 Jul 2026 it holds 14 real matches. Everything else in the demo is fictional placeholder data, clearly labeled "Example".
 
 Note: most day-to-day enquiry and reply traffic currently lands in `fostersfencing@hotmail.com.au`, a separate mailbox, and only reaches this Gmail account when manually forwarded. A real integration needs to watch whichever mailbox Invoice2go and clients actually reply to.
 

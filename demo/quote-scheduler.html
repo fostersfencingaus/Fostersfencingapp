@@ -580,20 +580,21 @@
     return new Date(Date.UTC(parseInt(m[3], 10), monthIdx, parseInt(m[1], 10)));
   }
 
-  // Mon–Sun week containing a given date, plus a "Week of 14–20 Jul 2026"
-  // style label (spelling out the month on both ends if the week crosses
-  // a month boundary).
+  // Sat–Fri week containing a given date (rollover is Saturday, matching
+  // the Friday quote-list compile that covers the previous Saturday
+  // onward), plus a "Week of 18–24 Jul 2026" style label (spelling out
+  // the month on both ends if the week crosses a month boundary).
   function weekInfoFor(date) {
     const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
     const dow = date.getUTCDay();
-    const monday = new Date(date);
-    monday.setUTCDate(date.getUTCDate() - ((dow + 6) % 7));
-    const sunday = new Date(monday);
-    sunday.setUTCDate(monday.getUTCDate() + 6);
-    const sameMonth = monday.getUTCMonth() === sunday.getUTCMonth();
-    const start = sameMonth ? `${monday.getUTCDate()}` : `${monday.getUTCDate()} ${monthNames[monday.getUTCMonth()]}`;
-    const end = `${sunday.getUTCDate()} ${monthNames[sunday.getUTCMonth()]} ${sunday.getUTCFullYear()}`;
-    return { key: monday.toISOString().slice(0, 10), monday, label: `Week of ${start}–${end}` };
+    const saturday = new Date(date);
+    saturday.setUTCDate(date.getUTCDate() - ((dow + 1) % 7));
+    const friday = new Date(saturday);
+    friday.setUTCDate(saturday.getUTCDate() + 6);
+    const sameMonth = saturday.getUTCMonth() === friday.getUTCMonth();
+    const start = sameMonth ? `${saturday.getUTCDate()}` : `${saturday.getUTCDate()} ${monthNames[saturday.getUTCMonth()]}`;
+    const end = `${friday.getUTCDate()} ${monthNames[friday.getUTCMonth()]} ${friday.getUTCFullYear()}`;
+    return { key: saturday.toISOString().slice(0, 10), monday: saturday, label: `Week of ${start}–${end}` };
   }
 
   // Buckets approvals into Mon–Sun weeks (newest first). Example rows have

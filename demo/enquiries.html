@@ -294,6 +294,50 @@
     margin: 8px 0 18px;
   }
 
+  .thisweek-heading {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin: 0 0 14px;
+  }
+  details.week {
+    border-top: 1px dashed var(--line);
+    padding-top: 16px;
+    margin-top: 6px;
+  }
+  details.week + details.week { margin-top: 18px; }
+  details.week summary {
+    cursor: pointer;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--steel);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 2px 0;
+  }
+  details.week summary::-webkit-details-marker { display: none; }
+  details.week summary::before {
+    content: "▸";
+    font-size: 11px;
+    color: var(--gold);
+    transition: transform 0.15s ease;
+  }
+  details.week[open] summary::before { transform: rotate(90deg); }
+  details.week summary .n {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace;
+    color: var(--ink-soft);
+    font-weight: 500;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+  details.week .week-body { padding-top: 16px; }
+
   footer.page {
     margin-top: 34px;
     padding-top: 16px;
@@ -320,7 +364,7 @@
   <div class="header-text">
     <span class="eyebrow">Fosters Fencing · Leads by suburb</span>
     <h1>Quote &amp; estimate enquiries</h1>
-    <p class="lede">Pulled from cloudmail contact-form forwards and other emails asking for a quote, grouped by suburb so you can see where the work is coming from.</p>
+    <p class="lede">Pulled from cloudmail contact-form forwards and other emails asking for a quote, grouped by suburb. This week's enquiries are shown open below; earlier weeks fold into click-to-expand sections so you can still see what came in last week or the week before, all on one page.</p>
   </div>
 </header>
 
@@ -1025,7 +1069,94 @@
     `).join("");
   }
 
-  renderGroups("current", groupBySuburb(current), false);
+  function groupsToHtml(groups) {
+    return groups.map(g => `
+      <section class="suburb-group">
+        <h2 class="suburb-name">${g.suburb} <span class="count">${g.items.length} ${g.items.length === 1 ? "enquiry" : "enquiries"}</span></h2>
+        <div class="list">
+          ${g.items.map(item => `
+            <div class="card">
+              <div class="card-top">
+                <span class="who">${item.who}</span>
+                <div class="badges">
+                  ${g.review ? '<span class="badge review">Check suburb</span>' : '<span class="badge fresh">New</span>'}
+                </div>
+              </div>
+              <div class="job">${item.job}</div>
+              ${item.email || item.phone ? `<div class="contact">${[item.phone, item.email].filter(Boolean).join(" · ")}</div>` : ""}
+              ${g.review ? `<div class="meta">Source text: "${item.raw}"</div>` : ""}
+              <div class="meta">${item.source}${item.postcode ? " — WA " + item.postcode : ""}${item.region ? " (" + item.region + ")" : ""} — ${item.date}</div>
+            </div>
+          `).join("")}
+        </div>
+      </section>
+    `).join("");
+  }
+
+  // Turns a free-typed "18 Jul 2026" style date into a real Date object so
+  // entries can be bucketed into calendar weeks. Returns null if it doesn't
+  // parse — those entries fall back into whichever week is "open" rather
+  // than being lost.
+  function parseEntryDate(str) {
+    const months = { Jan:0, Feb:1, Mar:2, Apr:3, May:4, Jun:5, Jul:6, Aug:7, Sep:8, Oct:9, Nov:10, Dec:11 };
+    const m = str && str.match(/(\d{1,2})\s+([A-Za-z]{3})\w*\s+(\d{4})/);
+    if (!m) return null;
+    const monthIdx = months[m[2].slice(0, 3)];
+    if (monthIdx === undefined) return null;
+    return new Date(Date.UTC(parseInt(m[3], 10), monthIdx, parseInt(m[1], 10)));
+  }
+
+  // Mon–Sun week containing a given date, plus a "Week of 14–20 Jul 2026"
+  // style label (spelling out the month on both ends if the week crosses
+  // a month boundary, e.g. "Week of 30 Jun–6 Jul 2026").
+  function weekInfoFor(date) {
+    const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    const dow = date.getUTCDay();
+    const monday = new Date(date);
+    monday.setUTCDate(date.getUTCDate() - ((dow + 6) % 7));
+    const sunday = new Date(monday);
+    sunday.setUTCDate(monday.getUTCDate() + 6);
+    const sameMonth = monday.getUTCMonth() === sunday.getUTCMonth();
+    const start = sameMonth ? `${monday.getUTCDate()}` : `${monday.getUTCDate()} ${monthNames[monday.getUTCMonth()]}`;
+    const end = `${sunday.getUTCDate()} ${monthNames[sunday.getUTCMonth()]} ${sunday.getUTCFullYear()}`;
+    return { key: monday.toISOString().slice(0, 10), monday, label: `Week of ${start}–${end}` };
+  }
+
+  // Buckets entries into Mon–Sun weeks (newest first). Entries with an
+  // unparseable date land in the most recent week rather than vanishing.
+  function groupByWeek(list) {
+    const weeks = {};
+    list.forEach(item => {
+      const parsed = parseEntryDate(item.date);
+      const info = parsed ? weekInfoFor(parsed) : { key: "unknown", monday: new Date(8640000000000000), label: "Date unclear" };
+      if (!weeks[info.key]) weeks[info.key] = { key: info.key, label: info.label, monday: info.monday, items: [] };
+      weeks[info.key].items.push(item);
+    });
+    return Object.values(weeks).sort((a, b) => b.monday - a.monday);
+  }
+
+  // Current enquiries are bucketed into weeks: the most recent week renders
+  // open (same as before), everything older folds into a collapsed
+  // "Week of …" section so the page stays short but nothing is hidden —
+  // click to expand and see what came in that week.
+  function renderCurrentByWeek(containerId, list) {
+    const el = document.getElementById(containerId);
+    const weeks = groupByWeek(list);
+    el.innerHTML = weeks.map((w, i) => {
+      const body = groupsToHtml(groupBySuburb(w.items));
+      if (i === 0) {
+        return `<div class="thisweek-heading">This week · ${w.label.replace("Week of ", "")}</div>${body}`;
+      }
+      return `
+        <details class="week">
+          <summary>${w.label} <span class="n">· ${w.items.length} ${w.items.length === 1 ? "enquiry" : "enquiries"}</span></summary>
+          <div class="week-body">${body}</div>
+        </details>
+      `;
+    }).join("");
+  }
+
+  renderCurrentByWeek("current", current);
   renderGroups("archived", groupBySuburb(archived), true);
 
   const currentSuburbs = new Set(current.filter(c => !c.unclear).map(c => normalizeSuburb(c.raw).name));

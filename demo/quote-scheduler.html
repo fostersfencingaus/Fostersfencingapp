@@ -317,6 +317,55 @@
     filter: none;
   }
 
+  .thisweek-heading {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin: 0 0 14px;
+  }
+  details.week {
+    border-top: 1px dashed var(--line);
+    padding-top: 16px;
+    margin-top: 10px;
+  }
+  details.week + details.week { margin-top: 18px; }
+  details.week summary {
+    cursor: pointer;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--steel);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 2px 0;
+  }
+  details.week summary::-webkit-details-marker { display: none; }
+  details.week summary::before {
+    content: "▸";
+    font-size: 11px;
+    color: var(--gold);
+    transition: transform 0.15s ease;
+  }
+  details.week[open] summary::before { transform: rotate(90deg); }
+  details.week summary .n {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace;
+    color: var(--ink-soft);
+    font-weight: 500;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+  details.week .week-body {
+    padding-top: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
   footer.page {
     margin-top: 34px;
     padding-top: 16px;
@@ -343,7 +392,7 @@
   <div class="header-text">
     <span class="eyebrow">Fosters Fencing · Job scheduling</span>
     <h1>Approved quotes, ready to book in</h1>
-    <p class="lede">Pulled from Invoice2go approval emails and client replies that name a quote number. Pick a date and time for each job, then send it straight to Google Calendar.</p>
+    <p class="lede">Pulled from Invoice2go approval emails and client replies that name a quote number. Pick a date and time for each job, then send it straight to Google Calendar. This week's approvals are shown open below; earlier weeks fold into click-to-expand sections.</p>
   </div>
 </header>
 
@@ -377,7 +426,8 @@
       source: "approved",
       who: "Client name not in notification — check Invoice2go",
       note: "Invoice2go: Estimate QT11004 was approved (received 12 Jul 2026, 9:49pm)",
-      location: ""
+      location: "",
+      date: "12 Jul 2026"
     },
     {
       id: "QT11012",
@@ -385,7 +435,8 @@
       source: "approved",
       who: "Matt Mccaughey — 0429 120 304 — mmccaughey@bigpond.com",
       note: "Client went ahead pending pricing on 2 extra sheets — now confirmed via Invoice2go: Estimate QT11012 was approved (received 15 Jul 2026, 5:30pm)",
-      location: "19 Charonia Road, Mullaloo"
+      location: "19 Charonia Road, Mullaloo",
+      date: "15 Jul 2026"
     },
     {
       id: "QT10772",
@@ -393,7 +444,8 @@
       source: "approved",
       who: "Client name not in notification — check Invoice2go",
       note: "Invoice2go: Estimate QT10772 was approved (received 15 Jul 2026, 8:00am)",
-      location: ""
+      location: "",
+      date: "15 Jul 2026"
     },
     {
       id: "QT10656",
@@ -401,7 +453,8 @@
       source: "approved",
       who: "Client name not in notification — check Invoice2go",
       note: "Invoice2go: Estimate QT10656 was approved (received 17 Jul 2026, 10:47am)",
-      location: ""
+      location: "",
+      date: "17 Jul 2026"
     },
     {
       id: "QT10963",
@@ -409,7 +462,8 @@
       source: "approved",
       who: "Client name not in notification — check Invoice2go",
       note: "Invoice2go: Estimate QT10963 was approved (received 16 Jul 2026, 2:29pm)",
-      location: ""
+      location: "",
+      date: "16 Jul 2026"
     },
     {
       id: "QT11030",
@@ -417,7 +471,8 @@
       source: "approved",
       who: "Client name not in notification — check Invoice2go",
       note: "Invoice2go: Estimate QT11030 was approved (received 15 Jul 2026, 6:19pm)",
-      location: ""
+      location: "",
+      date: "15 Jul 2026"
     },
     {
       id: "QT10982",
@@ -433,6 +488,7 @@
       source: "approved",
       who: "James Morrison — 0429 945 046 — jimmy.morrison1994@gmail.com",
       note: "Dig out and remove gate plus panel; supply and install colorbond gate approx. 1m wide, 50x50 post, dlatch, 1.2m colorbond panel. Total $1,200 (quoted 11/07/2026, approved 12 Jul 2026)",
+      date: "12 Jul 2026",
       location: "3c Jason Rd, Balcatta, WA 6021"
     }
   ].sort((a, b) => parseInt(a.id.slice(2)) - parseInt(b.id.slice(2)));
@@ -462,7 +518,7 @@
     return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${start}/${end}&details=${details}&location=${location}&ctz=Australia/Perth`;
   }
 
-  quotes.forEach((quote, i) => {
+  function buildCard(quote) {
     const card = document.createElement("div");
     card.className = "card" + (quote.example ? " is-example" : "");
 
@@ -510,8 +566,83 @@
       window.open(url, "_blank", "noopener");
     });
 
-    listEl.appendChild(card);
-  });
+    return card;
+  }
+
+  // Turns a free-typed "18 Jul 2026" style date into a real Date object so
+  // approvals can be bucketed into calendar weeks.
+  function parseEntryDate(str) {
+    const months = { Jan:0, Feb:1, Mar:2, Apr:3, May:4, Jun:5, Jul:6, Aug:7, Sep:8, Oct:9, Nov:10, Dec:11 };
+    const m = str && str.match(/(\d{1,2})\s+([A-Za-z]{3})\w*\s+(\d{4})/);
+    if (!m) return null;
+    const monthIdx = months[m[2].slice(0, 3)];
+    if (monthIdx === undefined) return null;
+    return new Date(Date.UTC(parseInt(m[3], 10), monthIdx, parseInt(m[1], 10)));
+  }
+
+  // Mon–Sun week containing a given date, plus a "Week of 14–20 Jul 2026"
+  // style label (spelling out the month on both ends if the week crosses
+  // a month boundary).
+  function weekInfoFor(date) {
+    const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    const dow = date.getUTCDay();
+    const monday = new Date(date);
+    monday.setUTCDate(date.getUTCDate() - ((dow + 6) % 7));
+    const sunday = new Date(monday);
+    sunday.setUTCDate(monday.getUTCDate() + 6);
+    const sameMonth = monday.getUTCMonth() === sunday.getUTCMonth();
+    const start = sameMonth ? `${monday.getUTCDate()}` : `${monday.getUTCDate()} ${monthNames[monday.getUTCMonth()]}`;
+    const end = `${sunday.getUTCDate()} ${monthNames[sunday.getUTCMonth()]} ${sunday.getUTCFullYear()}`;
+    return { key: monday.toISOString().slice(0, 10), monday, label: `Week of ${start}–${end}` };
+  }
+
+  // Buckets approvals into Mon–Sun weeks (newest first). Example rows have
+  // no real date — they're kept separate and always shown in the open
+  // "this week" section as placeholders, regardless of which week is newest.
+  function groupByWeek(list) {
+    const weeks = {};
+    const noDate = [];
+    list.forEach(item => {
+      const parsed = parseEntryDate(item.date);
+      if (!parsed) { noDate.push(item); return; }
+      const info = weekInfoFor(parsed);
+      if (!weeks[info.key]) weeks[info.key] = { key: info.key, label: info.label, monday: info.monday, items: [] };
+      weeks[info.key].items.push(item);
+    });
+    const sorted = Object.values(weeks).sort((a, b) => b.monday - a.monday);
+    return { weeks: sorted, noDate };
+  }
+
+  const byQuoteNumber = (a, b) => parseInt(a.id.slice(2)) - parseInt(b.id.slice(2));
+
+  function appendCards(items) {
+    items.slice().sort(byQuoteNumber).forEach(q => listEl.appendChild(buildCard(q)));
+  }
+
+  const { weeks, noDate } = groupByWeek(quotes);
+
+  if (weeks.length === 0) {
+    appendCards(noDate);
+  } else {
+    const heading = document.createElement("div");
+    heading.className = "thisweek-heading";
+    heading.textContent = `This week · ${weeks[0].label.replace("Week of ", "")}`;
+    listEl.appendChild(heading);
+    appendCards([...weeks[0].items, ...noDate]);
+
+    weeks.slice(1).forEach(w => {
+      const details = document.createElement("details");
+      details.className = "week";
+      const summary = document.createElement("summary");
+      summary.innerHTML = `${w.label} <span class="n">· ${w.items.length} ${w.items.length === 1 ? "quote" : "quotes"}</span>`;
+      details.appendChild(summary);
+      const body = document.createElement("div");
+      body.className = "week-body";
+      details.appendChild(body);
+      listEl.appendChild(details);
+      w.items.slice().sort(byQuoteNumber).forEach(q => body.appendChild(buildCard(q)));
+    });
+  }
 </script>
 
 </body>

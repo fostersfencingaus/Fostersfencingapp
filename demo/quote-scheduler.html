@@ -317,13 +317,18 @@
   }
   .shot-placeholder { color: var(--ink-soft); }
 
+  .cal-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding-top: 10px;
+    border-top: 1px dashed var(--line);
+  }
   .schedule-row {
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
     align-items: center;
-    padding-top: 10px;
-    border-top: 1px dashed var(--line);
   }
   label.field {
     display: flex;
@@ -334,7 +339,8 @@
     text-transform: uppercase;
     letter-spacing: 0.04em;
   }
-  input[type="date"], select {
+  label.field.wide { width: 100%; }
+  input[type="date"], input[type="text"], select {
     font: inherit;
     font-size: 14px;
     color: var(--ink);
@@ -343,6 +349,7 @@
     border-radius: 7px;
     padding: 6px 8px;
   }
+  label.field.wide input[type="text"] { width: 100%; }
   input:focus-visible, select:focus-visible, button:focus-visible {
     outline: 2px solid var(--focus);
     outline-offset: 2px;
@@ -653,13 +660,21 @@
     return d.toISOString().slice(0, 10).replace(/-/g, "");
   }
 
-  function buildCalendarUrl(quote, startDateStr, endDateStr) {
-    const title = encodeURIComponent(customerName(quote.who));
-    const details = encodeURIComponent(quote.id);
-    const location = encodeURIComponent(quote.location || "");
+  // Title/details/location are whatever's currently in the editable fields
+  // at click time (pre-filled from the quote, but overridable) rather than
+  // recomputed from the quote data, so on-the-fly edits are respected.
+  function buildCalendarUrl(title, details, location, startDateStr, endDateStr) {
     const start = startDateStr.replace(/-/g, "");
     const end = addDaysAsCalendarDate(endDateStr || startDateStr, 1);
-    return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${title}&dates=${start}/${end}&details=${details}&location=${location}`;
+    return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&dates=${start}/${end}&details=${encodeURIComponent(details)}&location=${encodeURIComponent(location)}`;
+  }
+
+  function escapeAttr(str) {
+    return String(str)
+      .replace(/&/g, "&amp;")
+      .replace(/"/g, "&quot;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
   }
 
   function buildCard(quote) {
@@ -690,6 +705,17 @@
         <div class="shot-area" data-role="shot-area" tabindex="0"></div>
       </div>
       ` : ""}
+      <div class="cal-fields">
+        <label class="field wide">Event title
+          <input type="text" data-role="cal-title" value="${escapeAttr(customerName(quote.who))}" />
+        </label>
+        <label class="field wide">Location
+          <input type="text" data-role="cal-location" value="${escapeAttr(quote.location || "")}" />
+        </label>
+        <label class="field wide">Description
+          <input type="text" data-role="cal-details" value="${escapeAttr(quote.id)}" />
+        </label>
+      </div>
       <div class="schedule-row">
         <label class="field">Start date
           <input type="date" data-role="date-start" />
@@ -701,6 +727,9 @@
       </div>
     `;
 
+    const titleInput = card.querySelector('[data-role="cal-title"]');
+    const locationInput = card.querySelector('[data-role="cal-location"]');
+    const detailsInput = card.querySelector('[data-role="cal-details"]');
     const startDateInput = card.querySelector('[data-role="date-start"]');
     const endDateInput = card.querySelector('[data-role="date-end"]');
     const addBtn = card.querySelector(".add-cal");
@@ -722,7 +751,13 @@
 
     addBtn.addEventListener("click", () => {
       if (!startDateInput.value) return;
-      const url = buildCalendarUrl(quote, startDateInput.value, endDateInput.value || startDateInput.value);
+      const url = buildCalendarUrl(
+        titleInput.value.trim(),
+        detailsInput.value.trim(),
+        locationInput.value.trim(),
+        startDateInput.value,
+        endDateInput.value || startDateInput.value
+      );
       window.open(url, "_blank", "noopener");
     });
 

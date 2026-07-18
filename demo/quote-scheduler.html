@@ -264,6 +264,55 @@
   }
   .detail .who { color: var(--ink); font-weight: 600; }
 
+  .shot-row {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .shot-btn {
+    align-self: flex-start;
+    font: inherit;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--accent);
+    background: var(--accent-soft);
+    border: 1px solid var(--accent);
+    border-radius: 8px;
+    padding: 6px 12px;
+    cursor: pointer;
+  }
+  .shot-btn:hover { filter: brightness(1.05); }
+  .shot-area {
+    border: 1px dashed var(--line);
+    border-radius: 8px;
+    padding: 10px;
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    cursor: text;
+    outline: none;
+  }
+  .shot-area:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+  .shot-area img {
+    max-width: 220px;
+    max-height: 320px;
+    display: block;
+    border-radius: 6px;
+    border: 1px solid var(--line);
+    margin-bottom: 6px;
+  }
+  .shot-hint { margin-bottom: 6px; }
+  .shot-clear {
+    font: inherit;
+    font-size: 11.5px;
+    color: var(--brand-red);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    text-decoration: underline;
+  }
+  .shot-placeholder { color: var(--ink-soft); }
+
   .schedule-row {
     display: flex;
     flex-wrap: wrap;
@@ -618,6 +667,13 @@
         </div>
       </div>
       <div class="detail"><span class="who">${quote.who}</span> — ${quote.note}</div>
+      ${quote.viewUrl ? `
+      <div class="shot-row">
+        <button class="shot-btn" type="button" data-role="shot-btn">📷 Upload screenshot</button>
+        <input type="file" accept="image/*" data-role="shot-input" hidden />
+        <div class="shot-area" data-role="shot-area" tabindex="0"></div>
+      </div>
+      ` : ""}
       <div class="schedule-row">
         <label class="field">Date
           <input type="date" data-role="date" />
@@ -648,6 +704,61 @@
       const url = buildCalendarUrl(quote, dateInput.value, startInput.value || "08:00", endInput.value || "10:00");
       window.open(url, "_blank", "noopener");
     });
+
+    if (quote.viewUrl) {
+      const shotBtn = card.querySelector('[data-role="shot-btn"]');
+      const shotInput = card.querySelector('[data-role="shot-input"]');
+      const shotArea = card.querySelector('[data-role="shot-area"]');
+      const shotKey = "ff-quote-shot-" + quote.id;
+
+      function renderShot(dataUrl) {
+        shotArea.innerHTML = dataUrl
+          ? `<img src="${dataUrl}" alt="Screenshot for ${quote.id}" />
+             <div class="shot-hint">Attached. Now paste this same screenshot into chat with Claude (mention ${quote.id}) so it can read the details and update this card.</div>
+             <button class="shot-clear" type="button" data-role="shot-clear">Remove screenshot</button>`
+          : `<span class="shot-placeholder">Click here and paste (Ctrl+V), or use the button above, to attach a screenshot of this estimate</span>`;
+        const clearBtn = shotArea.querySelector('[data-role="shot-clear"]');
+        if (clearBtn) {
+          clearBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            try { localStorage.removeItem(shotKey); } catch (err) {}
+            renderShot(null);
+          });
+        }
+      }
+
+      function storeShot(dataUrl) {
+        try { localStorage.setItem(shotKey, dataUrl); } catch (err) {}
+        renderShot(dataUrl);
+      }
+
+      function readFile(file) {
+        if (!file || !file.type || !file.type.startsWith("image/")) return;
+        const reader = new FileReader();
+        reader.onload = () => storeShot(reader.result);
+        reader.readAsDataURL(file);
+      }
+
+      shotBtn.addEventListener("click", () => shotInput.click());
+      shotInput.addEventListener("change", () => {
+        if (shotInput.files && shotInput.files[0]) readFile(shotInput.files[0]);
+      });
+      shotArea.addEventListener("click", () => shotArea.focus());
+      shotArea.addEventListener("paste", (e) => {
+        const items = e.clipboardData && e.clipboardData.items;
+        if (!items) return;
+        for (const item of items) {
+          if (item.type && item.type.startsWith("image/")) {
+            readFile(item.getAsFile());
+            break;
+          }
+        }
+      });
+
+      let existingShot = null;
+      try { existingShot = localStorage.getItem(shotKey); } catch (err) {}
+      renderShot(existingShot);
+    }
 
     return card;
   }

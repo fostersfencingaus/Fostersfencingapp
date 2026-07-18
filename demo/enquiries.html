@@ -1140,21 +1140,33 @@
   // open (same as before), everything older folds into a collapsed
   // "Week of …" section so the page stays short but nothing is hidden —
   // click to expand and see what came in that week.
+  // "This week" is anchored to today's actual Sat–Fri window, not just
+  // whichever week happens to be newest in the data — otherwise a quiet
+  // week (no new entries yet) would wrongly keep last week's entries
+  // labelled "This week" and unfolded instead of rolling them into a
+  // collapsed section like every other past week.
   function renderCurrentByWeek(containerId, list) {
     const el = document.getElementById(containerId);
     const weeks = groupByWeek(list);
-    el.innerHTML = weeks.map((w, i) => {
-      const body = groupsToHtml(groupBySuburb(w.items));
-      if (i === 0) {
-        return `<div class="thisweek-heading">This week · ${w.label.replace("Week of ", "")}</div>${body}`;
-      }
-      return `
-        <details class="week">
-          <summary>${w.label} <span class="n">· ${w.items.length} ${w.items.length === 1 ? "enquiry" : "enquiries"}</span></summary>
-          <div class="week-body">${body}</div>
-        </details>
-      `;
-    }).join("");
+    const now = new Date();
+    const todayUtc = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+    const thisWeekInfo = weekInfoFor(todayUtc);
+    const hasThisWeekData = weeks.length > 0 && weeks[0].key === thisWeekInfo.key;
+    const thisWeekItems = hasThisWeekData ? weeks[0].items : [];
+    const olderWeeks = hasThisWeekData ? weeks.slice(1) : weeks;
+
+    const heading = `<div class="thisweek-heading">This week · ${thisWeekInfo.label.replace("Week of ", "")}</div>`;
+    const body = thisWeekItems.length
+      ? groupsToHtml(groupBySuburb(thisWeekItems))
+      : `<p class="meta" style="margin: 0 0 20px;">No new enquiries yet this week.</p>`;
+    const olderHtml = olderWeeks.map(w => `
+      <details class="week">
+        <summary>${w.label} <span class="n">· ${w.items.length} ${w.items.length === 1 ? "enquiry" : "enquiries"}</span></summary>
+        <div class="week-body">${groupsToHtml(groupBySuburb(w.items))}</div>
+      </details>
+    `).join("");
+
+    el.innerHTML = heading + body + olderHtml;
   }
 
   renderCurrentByWeek("current", current);

@@ -620,30 +620,46 @@
     items.slice().sort(byQuoteNumber).forEach(q => listEl.appendChild(buildCard(q)));
   }
 
+  // "This week" is anchored to today's actual Sat–Fri window, not just
+  // whichever week happens to be newest in the data — otherwise a quiet
+  // week (no new approvals yet) would wrongly keep last week's approvals
+  // labelled "This week" and unfolded instead of rolling them into a
+  // collapsed section like every other past week.
   const { weeks, noDate } = groupByWeek(quotes);
+  const now = new Date();
+  const todayUtc = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+  const thisWeekInfo = weekInfoFor(todayUtc);
+  const hasThisWeekData = weeks.length > 0 && weeks[0].key === thisWeekInfo.key;
+  const thisWeekItems = hasThisWeekData ? weeks[0].items : [];
+  const olderWeeks = hasThisWeekData ? weeks.slice(1) : weeks;
 
-  if (weeks.length === 0) {
-    appendCards(noDate);
+  const heading = document.createElement("div");
+  heading.className = "thisweek-heading";
+  heading.textContent = `This week · ${thisWeekInfo.label.replace("Week of ", "")}`;
+  listEl.appendChild(heading);
+
+  if (thisWeekItems.length === 0 && noDate.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "meta";
+    empty.style.margin = "0 0 20px";
+    empty.textContent = "No new approvals yet this week.";
+    listEl.appendChild(empty);
   } else {
-    const heading = document.createElement("div");
-    heading.className = "thisweek-heading";
-    heading.textContent = `This week · ${weeks[0].label.replace("Week of ", "")}`;
-    listEl.appendChild(heading);
-    appendCards([...weeks[0].items, ...noDate]);
-
-    weeks.slice(1).forEach(w => {
-      const details = document.createElement("details");
-      details.className = "week";
-      const summary = document.createElement("summary");
-      summary.innerHTML = `${w.label} <span class="n">· ${w.items.length} ${w.items.length === 1 ? "quote" : "quotes"}</span>`;
-      details.appendChild(summary);
-      const body = document.createElement("div");
-      body.className = "week-body";
-      details.appendChild(body);
-      listEl.appendChild(details);
-      w.items.slice().sort(byQuoteNumber).forEach(q => body.appendChild(buildCard(q)));
-    });
+    appendCards([...thisWeekItems, ...noDate]);
   }
+
+  olderWeeks.forEach(w => {
+    const details = document.createElement("details");
+    details.className = "week";
+    const summary = document.createElement("summary");
+    summary.innerHTML = `${w.label} <span class="n">· ${w.items.length} ${w.items.length === 1 ? "quote" : "quotes"}</span>`;
+    details.appendChild(summary);
+    const body = document.createElement("div");
+    body.className = "week-body";
+    details.appendChild(body);
+    listEl.appendChild(details);
+    w.items.slice().sort(byQuoteNumber).forEach(q => body.appendChild(buildCard(q)));
+  });
 </script>
 
 </body>

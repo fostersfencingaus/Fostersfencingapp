@@ -461,7 +461,7 @@
 <div class="stat-row" id="statRow"></div>
 
 <div class="banner">
-  <strong>Demo data.</strong> QT10656, QT10772, QT10902, QT10962, QT10963, QT10965, QT11000, QT11004, QT11012, QT11019, QT11030, QT10979, QT10981, QT10992, QT10993, QT11025, QT11026, QT11027, QT11057, QT11059, QT11060 and QT11029 below are real, pulled from your inbox 12–22&nbsp;Jul&nbsp;2026. The remaining <em>Example</em> rows are placeholders — fictional names and quote numbers — so you can see how the list fills out once more approvals and client replies come in. See <code>docs/email-parsing-rules.md</code> for the detection rules this is built on.
+  <strong>Demo data.</strong> QT10656, QT10772, QT10902, QT10962, QT10963, QT10965, QT11000, QT11004, QT11012, QT11019, QT11030, QT11031, QT10979, QT10981, QT10992, QT10993, QT11025, QT11026, QT11027, QT11057, QT11059, QT11060 and QT11029 below are real, pulled from your inbox 12–22&nbsp;Jul&nbsp;2026. The remaining <em>Example</em> rows are placeholders — fictional names and quote numbers — so you can see how the list fills out once more approvals and client replies come in. See <code>docs/email-parsing-rules.md</code> for the detection rules this is built on.
 </div>
 
 <div class="list" id="list"></div>
@@ -709,6 +709,16 @@
       location: "",
       date: "19 Jul 2026",
       viewUrl: "https://link.invoice2go.com/f/a/TSlS3_4W2fVvqD9i-SUGZg~~/AAQRxRA~/EPM8Ta_1969zFOIdJZ2CfdQsYXJH3k-Cb99YjeXB8R-nMHmtMOw4Ky1lW3_BwAF-zNA7e_62tSf3YbAeOislmAYI8O2ZW1SBodWtFLKuEbK8LBSQj_OBqMxZiHnoLlmeSoeYlCG-FFyW4TUkI3-EfDREo0D0e7cg5alFT95E-EFgH17R82pN394tB23XQl177a2edjdwdkuOtCfTvn5mCg~~"
+    },
+    {
+      id: "QT11031",
+      example: false,
+      source: "approved",
+      who: "Client name not in notification — check Invoice2go",
+      note: "Invoice2go: Estimate QT11031 was approved (received 22 Jul 2026, 10:05pm)",
+      location: "",
+      date: "22 Jul 2026",
+      viewUrl: "https://link.invoice2go.com/f/a/mBXMotGRvDsDaNwPotUDgw~~/AAQRxRA~/P7fWuuj4Jd32ykbjcteduUZB-n9S_cWIncHTMduMu8YbpmNGvZITz4RQScCW2_NNzK5DRZY_352fDFEshfCE7E2hPFcUB1pXlyXIBKMNHVlaVWOX142zxqMK67DQPS-rsfLvRcJf2VbWI53zP6Noby-tfwToYg3YUFzUl-xQMRVaY2gkeZSnKiiqTdWHFvF9-stAjZQ-_C0kYdjcBbh1NA~~"
     }
   ].sort((a, b) => parseInt(a.id.slice(2)) - parseInt(b.id.slice(2)));
 

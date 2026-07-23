@@ -461,7 +461,7 @@
 <div class="stat-row" id="statRow"></div>
 
 <div class="banner">
-  <strong>Demo data.</strong> QT10656, QT10772, QT10902, QT10927, QT10962, QT10963, QT10965, QT11000, QT11004, QT11012, QT11019, QT11030, QT11031, QT10979, QT10981, QT10992, QT10993, QT11025, QT11026, QT11027, QT11057, QT11059, QT11060, QT11064 and QT11029 below are real, pulled from your inbox 12–23&nbsp;Jul&nbsp;2026. The remaining <em>Example</em> rows are placeholders — fictional names and quote numbers — so you can see how the list fills out once more approvals and client replies come in. See <code>docs/email-parsing-rules.md</code> for the detection rules this is built on.
+  <strong>Demo data.</strong> QT10656, QT10772, QT10873, QT10902, QT10927, QT10962, QT10963, QT10965, QT11000, QT11004, QT11012, QT11019, QT11030, QT11031, QT10979, QT10981, QT10992, QT10993, QT11025, QT11026, QT11027, QT11057, QT11059, QT11060, QT11064 and QT11029 below are real, pulled from your inbox 12–23&nbsp;Jul&nbsp;2026. The remaining <em>Example</em> rows are placeholders — fictional names and quote numbers — so you can see how the list fills out once more approvals and client replies come in. See <code>docs/email-parsing-rules.md</code> for the detection rules this is built on.
 </div>
 
 <div class="list" id="list"></div>
@@ -739,6 +739,16 @@
       location: "",
       date: "23 Jul 2026",
       viewUrl: "https://link.invoice2go.com/f/a/dBid-tSZyGoKmDQphhIP4Q~~/AAQRxRA~/nN2ISVPfy59kTB9WY1Be7dQE2IsOgrSrrzqfYK-4YJMia_AdWtUIFasyb0WOOryf-1VIjkB6eGXwDvNgprAsgFHz38Os3PJtgtJwAQrUy9AhtQTKdFe8N7G1KMa3uCGKmqIh9tdl0TPotIXq7sLUy5EaOEGypPmHQ1TpuKKrD5rK1rxj1NdifdS2M_0JIR0Q3Q9HHrDFQI_FSanE_4tkAA~~"
+    },
+    {
+      id: "QT10873",
+      example: false,
+      source: "approved",
+      who: "Client name not in notification — check Invoice2go",
+      note: "Invoice2go: Estimate QT10873 was approved (received 23 Jul 2026, 1:50pm)",
+      location: "",
+      date: "23 Jul 2026",
+      viewUrl: "https://link.invoice2go.com/f/a/-usd3h8dl47Wz2uLHqQXfQ~~/AAQRxRA~/rkCkT0DuCoAKKfddjXmi5WUGnNZHulehrODxZe1adM3h3HqgWAg768Me6PKmRU_mBt8au2DOZyZ8-wXFBKTMCJ2DcuQ796sEWAaZjOy9mRS4UelueWNW4eYdr63jpPSSSQVaohRLHSP9971TbJy98WKAtHc_Jw8updTzneoE_4bvSFUc0o-hSyuf_8viz9AiGf_5zHNdYStgIgNNv9gbOA~~"
     }
   ].sort((a, b) => parseInt(a.id.slice(2)) - parseInt(b.id.slice(2)));
 

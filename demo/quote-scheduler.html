@@ -287,6 +287,8 @@
     color: var(--ink-soft);
   }
   .detail .who { color: var(--ink); font-weight: 600; }
+  .detail .who a { color: var(--accent); text-decoration: none; font-weight: 600; }
+  .detail .who a:hover, .detail .who a:focus-visible { text-decoration: underline; }
   .meta {
     font-size: 12px;
     color: var(--steel);
@@ -1000,6 +1002,21 @@
     return who.split(" — ")[0].trim();
   }
 
+  // Turns the phone/email segments of a "who" string into sms:/mailto:
+  // links (phone opens the default SMS app, not a call, per how this page
+  // is actually used) while leaving the name and any non-contact segment
+  // (e.g. "check Invoice2go") as plain text.
+  function whoMarkup(who) {
+    const parts = String(who).split(" — ").map(p => p.trim());
+    return parts.map((part, i) => {
+      if (i === 0) return escapeAttr(part);
+      if (part.includes("@")) return `<a href="mailto:${escapeAttr(part)}">${escapeAttr(part)}</a>`;
+      const digits = part.replace(/[^\d+]/g, "");
+      if (digits.replace(/\D/g, "").length >= 6) return `<a href="sms:${digits}">${escapeAttr(part)}</a>`;
+      return escapeAttr(part);
+    }).join(" — ");
+  }
+
   // Google's all-day "dates" range is end-exclusive, so a same-day event
   // needs end = start + 1 day; add(n) days to a "YYYY-MM-DD" string and
   // return it as "YYYYMMDD" for the URL.
@@ -1112,7 +1129,7 @@
       const override = getOverride(quote.id);
       const display = override ? { ...quote, ...override } : quote;
       detailEl.innerHTML = `
-        <span class="who">${display.who}</span> — ${display.note}
+        <span class="who">${whoMarkup(display.who)}</span> — ${display.note}
         ${override ? `<span class="ocr-applied-badge">✨ From screenshot</span><button class="ocr-revert" type="button" data-role="ocr-revert">Revert</button>` : ""}
       `;
       titleInput.value = customerName(display.who);

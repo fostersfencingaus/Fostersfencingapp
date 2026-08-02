@@ -576,21 +576,22 @@
   // manual "paste into chat with Claude" flow still works either way.
   const OCR_ENDPOINT = "";
 
-  // Google Calendar's fixed event-colour palette, matched to each quote's
-  // colorId from the booking calendar event — colour = which team/crew it's
-  // booked under. Quotes not yet booked (no calendar event) have no colorId.
+  // Matched to each quote's colorId from its booking calendar event —
+  // colour = which team it's booked under. Quotes not yet booked (no
+  // calendar event) have no colorId. Unmapped Google Calendar colours
+  // (not currently used by any team) fall back to their Google colour name.
   const TEAM_COLORS = {
-    "1": { name: "Lavender", hex: "#7986cb" },
-    "2": { name: "Sage", hex: "#33b679" },
+    "1": { name: "Main Team", hex: "#7986cb" },
+    "2": { name: "Calum", hex: "#33b679" },
     "3": { name: "Grape", hex: "#8e24aa" },
     "4": { name: "Flamingo", hex: "#e67c73" },
-    "5": { name: "Banana", hex: "#f6bf26" },
+    "5": { name: "Lachi & Tai", hex: "#f6bf26" },
     "6": { name: "Tangerine", hex: "#f4511e" },
     "7": { name: "Peacock", hex: "#039be5" },
     "8": { name: "Graphite", hex: "#616161" },
     "9": { name: "Blueberry", hex: "#3f51b5" },
     "10": { name: "Basil", hex: "#0b8043" },
-    "11": { name: "Tomato", hex: "#d60000" }
+    "11": { name: "Jake", hex: "#d60000" }
   };
 
   const quotes = [
@@ -1100,14 +1101,6 @@
         <label class="field">End date
           <input type="date" data-role="date-end" />
         </label>
-        ${!quote.bookedDate ? `
-        <label class="field" title="Google Calendar doesn't support setting an event's colour from this link — your pick is added to the description instead, and shown as this job's badge here until it's booked.">Team colour
-          <select data-role="color-select">
-            <option value="">— pick colour —</option>
-            ${Object.keys(TEAM_COLORS).map(id => `<option value="${id}">${TEAM_COLORS[id].name}</option>`).join("")}
-          </select>
-        </label>
-        ` : ""}
         <button class="add-cal" type="button" disabled>Add to Calendar</button>
       </div>
     `;
@@ -1119,42 +1112,6 @@
     const startDateInput = card.querySelector('[data-role="date-start"]');
     const endDateInput = card.querySelector('[data-role="date-end"]');
     const addBtn = card.querySelector(".add-cal");
-    const colorSelect = card.querySelector('[data-role="color-select"]');
-
-    // Colour picked for a not-yet-booked job — kept local to this page
-    // (Google's quick-add link has no way to set an event's colour), shown
-    // as a badge here so it's obvious what's intended once it's actually
-    // booked and coloured on the calendar itself.
-    if (colorSelect) {
-      const colorKey = "ff-quote-color-" + quote.id;
-      let savedColor = "";
-      try { savedColor = localStorage.getItem(colorKey) || ""; } catch (err) {}
-      colorSelect.value = savedColor;
-
-      function renderColorBadge() {
-        const badgesEl = card.querySelector(".badges");
-        const existing = badgesEl.querySelector(".badge.team-color");
-        if (existing) existing.remove();
-        const c = TEAM_COLORS[colorSelect.value];
-        if (c) {
-          const span = document.createElement("span");
-          span.className = "badge team-color";
-          span.style.background = c.hex + "22";
-          span.style.color = c.hex;
-          span.innerHTML = `<span class="team-dot" style="background:${c.hex}"></span>${c.name}`;
-          badgesEl.appendChild(span);
-        }
-      }
-      renderColorBadge();
-
-      colorSelect.addEventListener("change", () => {
-        try {
-          if (colorSelect.value) localStorage.setItem(colorKey, colorSelect.value);
-          else localStorage.removeItem(colorKey);
-        } catch (err) {}
-        renderColorBadge();
-      });
-    }
 
     // Renders the who/note line (and the calendar defaults) from the base
     // quote data, or from a saved screenshot-extraction override if one
@@ -1204,14 +1161,9 @@
 
     addBtn.addEventListener("click", () => {
       if (!startDateInput.value) return;
-      let details = detailsInput.value.trim();
-      const pickedColor = colorSelect && TEAM_COLORS[colorSelect.value];
-      if (pickedColor) {
-        details = details ? `${details} — Team colour: ${pickedColor.name}` : `Team colour: ${pickedColor.name}`;
-      }
       const url = buildCalendarUrl(
         titleInput.value.trim(),
-        details,
+        detailsInput.value.trim(),
         locationInput.value.trim(),
         startDateInput.value,
         endDateInput.value || startDateInput.value

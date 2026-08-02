@@ -400,9 +400,13 @@
 </div>
 
 <script>
-  // `raw` is exactly what the source email contained (as typed into the
-  // website form, or copied from the email body) — never edited by hand.
-  // normalizeSuburb() below turns that into a clean grouping key.
+  // `raw` is the suburb as the source email contained it (as typed into the
+  // website form, or copied from the email body) — normalizeSuburb() below
+  // turns that into a clean grouping key. When the source gave a full
+  // street address instead of just a suburb, `raw` is trimmed to the
+  // suburb (+ postcode if given) so grouping works, and the exact
+  // house number/street is prepended to `job` instead (e.g. "12 Smith
+  // St — ...") so the address isn't lost.
   const current = [
     {
       who: "David Fallows",
@@ -1164,16 +1168,16 @@
       who: "Jacob Stone",
       email: "hellojacobstone@gmail.com",
       phone: "0433 332 159",
-      raw: "45 Drakeswood Road, Warwick",
-      job: "Install colorbond garden boundary fence (1.8m high) to east and west sides of rear garden, matching existing northern boundary fence colour; quote to include removal of existing asbestos fence (client may consider leaving it in place)",
+      raw: "Warwick",
+      job: "45 Drakeswood Road — Install colorbond garden boundary fence (1.8m high) to east and west sides of rear garden, matching existing northern boundary fence colour; quote to include removal of existing asbestos fence (client may consider leaving it in place)",
       source: "Cloudmail contact form (fostersfencing@cloudmail.net.au)",
       date: "21 Jul 2026"
     },
     {
       who: "Diane van de Velde (c/o property manager)",
       email: "pm6@semplepg.com.au",
-      raw: "11 Forres Place, Greenwood",
-      job: "Repair storm-damaged hardi fence — owner requested repair, though hardi fence is discontinued and most contractors are replacing with colorbond; neighbour's quote for comparison was 9 sheets of colorbond, approx 19m",
+      raw: "Greenwood",
+      job: "11 Forres Place — Repair storm-damaged hardi fence — owner requested repair, though hardi fence is discontinued and most contractors are replacing with colorbond; neighbour's quote for comparison was 9 sheets of colorbond, approx 19m",
       source: "Direct email enquiry (via managing agent, Semple Property Group)",
       date: "21 Jul 2026"
     },
@@ -1208,8 +1212,8 @@
       who: "Chris Schmid",
       email: "chris@cjschmid.com.au",
       phone: "0427 019 193",
-      raw: "27 Samson Street, Fremantle",
-      job: "Remove and replace approx 24m asbestos fence (fallen over), insurance job — stepped heights (2.1m/1.8m/1.5m) following retaining, Stratco Wavelok in Monument to match other side of property; wants site inspection first, and quote to cover removal, legal disposal, disposal certificate, supply and install",
+      raw: "Fremantle",
+      job: "27 Samson Street — Remove and replace approx 24m asbestos fence (fallen over), insurance job — stepped heights (2.1m/1.8m/1.5m) following retaining, Stratco Wavelok in Monument to match other side of property; wants site inspection first, and quote to cover removal, legal disposal, disposal certificate, supply and install",
       source: "Direct email enquiry",
       date: "21 Jul 2026"
     },
@@ -1258,8 +1262,8 @@
       who: "Nagy Georgy",
       email: "ngeo@hotmail.com.au",
       phone: "0419 924 765",
-      raw: "10 Sporing Way, Hillarys",
-      job: "Short limestone panels along the new battleaxe driveway of the rear block, to match existing limestone panelling done on the other side — follow-up on a phone discussion, client keen to fit in while the rear block owner is clearing bricks with his own earthmoving trucks",
+      raw: "Hillarys",
+      job: "10 Sporing Way — Short limestone panels along the new battleaxe driveway of the rear block, to match existing limestone panelling done on the other side — follow-up on a phone discussion, client keen to fit in while the rear block owner is clearing bricks with his own earthmoving trucks",
       source: "Direct email enquiry",
       date: "21 Jul 2026"
     },
@@ -1293,8 +1297,8 @@
       who: "Zelma Collins",
       email: "collinszelma@gmail.com",
       phone: "0431 626 222",
-      raw: "22 Narrung Way, Nollamara",
-      job: "20.48 linear metres of jarrah fencing — blown over in winds in March, needs a quote for insurance purposes. Wants to know if a quote can be provided without attending the property, otherwise needs a site visit arranged. Also needs removal and disposal of the existing jarrah fence.",
+      raw: "Nollamara",
+      job: "22 Narrung Way — 20.48 linear metres of jarrah fencing — blown over in winds in March, needs a quote for insurance purposes. Wants to know if a quote can be provided without attending the property, otherwise needs a site visit arranged. Also needs removal and disposal of the existing jarrah fence.",
       source: "Cloudmail contact form (fostersfencing@cloudmail.net.au)",
       date: "22 Jul 2026"
     },
@@ -1336,8 +1340,8 @@
       who: "Patrick Flynn",
       email: "patrick.flynn59@gmail.com",
       phone: "0452 056 690",
-      raw: "31A Third Ave, Bassendean",
-      job: "Fully dig out and dispose of existing asbestos fence (with old wooden lattice) at a licensed tip site, then install 1.8m colour steel fence with 150mm aluminium plinth, 29.3m total. Site has soft garden soil on one side and pavers on the other; some existing foliage to be cut back at 3 intersection points. Arranging on behalf of two sets of pensioner neighbours; happy to discuss and have a site visit. Notes Fosters previously fenced the back neighbour (Bruce, 29A Third Ave).",
+      raw: "Bassendean",
+      job: "31A Third Ave — Fully dig out and dispose of existing asbestos fence (with old wooden lattice) at a licensed tip site, then install 1.8m colour steel fence with 150mm aluminium plinth, 29.3m total. Site has soft garden soil on one side and pavers on the other; some existing foliage to be cut back at 3 intersection points. Arranging on behalf of two sets of pensioner neighbours; happy to discuss and have a site visit. Notes Fosters previously fenced the back neighbour (Bruce, 29A Third Ave).",
       source: "Cloudmail contact form (fostersfencing@cloudmail.net.au)",
       date: "22 Jul 2026"
     },
@@ -1594,8 +1598,8 @@
       who: "Tom Betterton",
       email: "tombetterton@hotmail.com",
       phone: "",
-      raw: "Cape Street, Tuart Hill",
-      job: "Remove existing asbestos fence and install Colorbond on the west boundary, approx. 35m — shared with two neighbours (three-way split). Settling on the property, won't take ownership for 1-2 months; boundary is leaning ~15-20° and in poor condition. Asked whether Fosters can manage the quote-splitting/neighbour communication directly; Dave has already replied covering WA dividing-fence cost rules, and Tom has followed up to arrange a site visit.",
+      raw: "Tuart Hill",
+      job: "Cape Street — Remove existing asbestos fence and install Colorbond on the west boundary, approx. 35m — shared with two neighbours (three-way split). Settling on the property, won't take ownership for 1-2 months; boundary is leaning ~15-20° and in poor condition. Asked whether Fosters can manage the quote-splitting/neighbour communication directly; Dave has already replied covering WA dividing-fence cost rules, and Tom has followed up to arrange a site visit.",
       source: "Direct email enquiry",
       date: "26 Jul 2026"
     },
@@ -1612,8 +1616,8 @@
       who: "Damien (Kip. Happy Stays — National Maintenance & Facilities Manager)",
       email: "damien@kip.com.au",
       phone: "0402 028 656",
-      raw: "49 Adams Rd, Mariginiup WA 6078",
-      job: "Double colorbond gates plus some side infills. Supporting photos attached.",
+      raw: "Mariginiup 6078",
+      job: "49 Adams Rd — Double colorbond gates plus some side infills. Supporting photos attached.",
       source: "Direct email enquiry (property management/facilities)",
       date: "27 Jul 2026"
     },
@@ -1648,8 +1652,8 @@
       who: "David Boots",
       email: "dboots1970@hotmail.com",
       phone: "0409 102 243",
-      raw: "28 Phillips-Fox Terrace, Woodvale",
-      job: "Quote to replace the remaining boundaries. Repeat customer — Fosters replaced a storm-damaged fence for him around October 2024.",
+      raw: "Woodvale",
+      job: "28 Phillips-Fox Terrace — Quote to replace the remaining boundaries. Repeat customer — Fosters replaced a storm-damaged fence for him around October 2024.",
       source: "Cloudmail contact form (fostersfencing@cloudmail.net.au)",
       date: "27 Jul 2026"
     },
@@ -1657,8 +1661,8 @@
       who: "Daisy Lyons",
       email: "daisyalice.pattison@gmail.com",
       phone: "0468 699 042",
-      raw: "9 Garden Grove, Edgewater",
-      job: "Replace fence with Colourbond — may be asbestos that needs removing. Referral from neighbour Tim Jones in Edgewater. Wants an on-site quote.",
+      raw: "Edgewater",
+      job: "9 Garden Grove — Replace fence with Colourbond — may be asbestos that needs removing. Referral from neighbour Tim Jones in Edgewater. Wants an on-site quote.",
       source: "Cloudmail contact form (fostersfencing@cloudmail.net.au)",
       date: "27 Jul 2026"
     },
@@ -1666,8 +1670,8 @@
       who: "Rebecca Lewis",
       email: "beccalewisoz7@myyahoo.com",
       phone: "0488 047 394",
-      raw: "31 Campbell Drive, Hillarys",
-      job: "Safe removal and disposal of an existing asbestos boundary fence, plus a separate quote for supplying and installing a new Colorbond fence afterwards. Followed up with address and phone number, asked for a call.",
+      raw: "Hillarys",
+      job: "31 Campbell Drive — Safe removal and disposal of an existing asbestos boundary fence, plus a separate quote for supplying and installing a new Colorbond fence afterwards. Followed up with address and phone number, asked for a call.",
       source: "Direct email enquiry",
       date: "27 Jul 2026"
     },
@@ -1682,8 +1686,8 @@
       who: "Ebi",
       email: "ebi.dolabi64@gmail.com",
       phone: "0411 725 364",
-      raw: "9 Hess Court, Marangaroo",
-      job: "Install approx. 39-40 linear metres of new Colorbond fencing (1.8m high, 0.35mm BMT BlueScope sheets) — remove existing metal sheets, steel framework and brick sections; keep removed metal/steel on-site but remove and dispose of bricks/rubble. Wants full itemised quote (materials, labour, GST, warranty) plus price per linear metre, and a site visit for accurate measurements.",
+      raw: "Marangaroo",
+      job: "9 Hess Court — Install approx. 39-40 linear metres of new Colorbond fencing (1.8m high, 0.35mm BMT BlueScope sheets) — remove existing metal sheets, steel framework and brick sections; keep removed metal/steel on-site but remove and dispose of bricks/rubble. Wants full itemised quote (materials, labour, GST, warranty) plus price per linear metre, and a site visit for accurate measurements.",
       source: "Cloudmail contact form (fostersfencing@cloudmail.net.au)",
       date: "27 Jul 2026"
     },
@@ -1921,8 +1925,8 @@
       who: "ESM Strata (Ana Beatriz Pingul)",
       email: "apingul@esmstrata.com.au",
       phone: "08 9362 1166",
-      raw: "162 McDonald Street, Joondanna",
-      job: "Quote Request — S/Plan 17649, Job #91683. Original request sent early Jul; strata manager has followed up repeatedly (16, 23, 30 Jul) chasing a status update.",
+      raw: "Joondanna",
+      job: "162 McDonald Street — Quote Request — S/Plan 17649, Job #91683. Original request sent early Jul; strata manager has followed up repeatedly (16, 23, 30 Jul) chasing a status update.",
       source: "Direct email enquiry (strata management follow-up)",
       date: "16 Jul 2026"
     },
@@ -1973,8 +1977,8 @@
       who: "Ross Trainer",
       email: "randmtrainer@bigpond.com",
       phone: "6142 373 921",
-      raw: "6 Alness Street, Applecross",
-      job: "Install Colorbond fence on left and right boundaries, approx. 53m each side — quote for 1.8m high with 2.1m high as an option. Existing asbestos/fibro/picket fences removed by demolition contractor when house is demolished in October; fencing to go in immediately after. Final length may vary once new home design finalised.",
+      raw: "Applecross",
+      job: "6 Alness Street — Install Colorbond fence on left and right boundaries, approx. 53m each side — quote for 1.8m high with 2.1m high as an option. Existing asbestos/fibro/picket fences removed by demolition contractor when house is demolished in October; fencing to go in immediately after. Final length may vary once new home design finalised.",
       source: "Cloudmail contact form (fostersfencing@cloudmail.net.au)",
       date: "30 Jul 2026"
     },
@@ -1998,8 +2002,8 @@
       who: "Matteo Favero",
       email: "teo86.favero@gmail.com",
       phone: "0412 348 643",
-      raw: "3 Conidae Drive, Heathridge",
-      job: "Remove existing asbestos fence, supply/install new Colorbond fence, approx. 78m total — rear 21m (2100mm high, neighbours agreed, requires retaining plinths/posts), left side 35m, right side 22m (13m already removed by subdividing neighbour). Wants itemised quote per boundary including asbestos clearance certificate; targeting late Aug/early Sep.",
+      raw: "Heathridge",
+      job: "3 Conidae Drive — Remove existing asbestos fence, supply/install new Colorbond fence, approx. 78m total — rear 21m (2100mm high, neighbours agreed, requires retaining plinths/posts), left side 35m, right side 22m (13m already removed by subdividing neighbour). Wants itemised quote per boundary including asbestos clearance certificate; targeting late Aug/early Sep.",
       source: "Cloudmail contact form (fostersfencing@cloudmail.net.au)",
       date: "31 Jul 2026"
     },
@@ -2007,8 +2011,8 @@
       who: "Jan Peyper",
       email: "jan.peyper@icloud.com",
       phone: "0439 971 649",
-      raw: "26 & 28 Dollis Way, Kingsley",
-      job: "Remove storm-damaged Hardifence boundary fence incl. broken posts/footings, tree roots and overgrowth; supply/install approx. 17m limestone wall (1 block high) plus approx. 17m new 1.8m Colorbond fence in Classic Cream; repair disturbed brick paving.",
+      raw: "Kingsley",
+      job: "26 & 28 Dollis Way — Remove storm-damaged Hardifence boundary fence incl. broken posts/footings, tree roots and overgrowth; supply/install approx. 17m limestone wall (1 block high) plus approx. 17m new 1.8m Colorbond fence in Classic Cream; repair disturbed brick paving.",
       source: "Cloudmail contact form (fostersfencing@cloudmail.net.au)",
       date: "31 Jul 2026"
     },
@@ -2080,8 +2084,8 @@
       who: "Matthew Poli",
       email: "matthew@poli.com.au",
       phone: "0419 555 934",
-      raw: "85 Avocado Dr, Dianella",
-      job: "26m x 1.80m Colorbond fencing, with 12m x 450mm allywall and 14m x 600mm allywall.",
+      raw: "Dianella",
+      job: "85 Avocado Dr — 26m x 1.80m Colorbond fencing, with 12m x 450mm allywall and 14m x 600mm allywall.",
       source: "Cloudmail contact form (fostersfencing@cloudmail.net.au)",
       date: "1 Aug 2026"
     },

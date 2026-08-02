@@ -274,6 +274,19 @@
   .legend-item { display: inline-flex; align-items: center; gap: 5px; }
   .legend-item .team-dot { width: 9px; height: 9px; }
 
+  .group-toggle-row { margin: -8px 0 18px; }
+  .group-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink-soft);
+    cursor: pointer;
+    user-select: none;
+  }
+  .group-toggle input { cursor: pointer; }
+
   .detail {
     font-size: 14px;
     color: var(--ink-soft);
@@ -535,6 +548,13 @@
 <div class="stat-row" id="statRow"></div>
 
 <div class="legend" id="teamLegend"></div>
+
+<div class="group-toggle-row">
+  <label class="group-toggle">
+    <input type="checkbox" id="groupUnbookedToggle" />
+    Group jobs awaiting booking together
+  </label>
+</div>
 
 <div class="banner">
   <strong>Real, live approvals.</strong> The 32 quotes below are pulled from your inbox 12&nbsp;Jul–1&nbsp;Aug&nbsp;2026 — Invoice2go approval notifications and client replies naming a quote number with go-ahead language. See <code>docs/email-parsing-rules.md</code> for the detection rules this is built on.
@@ -964,7 +984,7 @@
   const realCount = quotes.filter(q => !q.example).length;
 
   statRow.innerHTML = `
-    <div class="stat"><span class="n">${quotes.length}</span><span class="label">Awaiting a booking</span></div>
+    <div class="stat"><span class="n">${quotes.filter(q => !q.bookedDate).length}</span><span class="label">Awaiting a booking</span></div>
     <div class="stat"><span class="n">${approvedCount}</span><span class="label">Invoice2go approvals</span></div>
     <div class="stat"><span class="n">${replyCount}</span><span class="label">Client "go ahead" replies</span></div>
     <div class="stat"><span class="n">${realCount}</span><span class="label">From your real inbox</span></div>
@@ -1080,6 +1100,14 @@
         <label class="field">End date
           <input type="date" data-role="date-end" />
         </label>
+        ${!quote.bookedDate ? `
+        <label class="field" title="Google Calendar doesn't support setting an event's colour from this link — your pick is added to the description instead, and shown as this job's badge here until it's booked.">Team colour
+          <select data-role="color-select">
+            <option value="">— pick colour —</option>
+            ${Object.keys(TEAM_COLORS).map(id => `<option value="${id}">${TEAM_COLORS[id].name}</option>`).join("")}
+          </select>
+        </label>
+        ` : ""}
         <button class="add-cal" type="button" disabled>Add to Calendar</button>
       </div>
     `;
@@ -1091,6 +1119,42 @@
     const startDateInput = card.querySelector('[data-role="date-start"]');
     const endDateInput = card.querySelector('[data-role="date-end"]');
     const addBtn = card.querySelector(".add-cal");
+    const colorSelect = card.querySelector('[data-role="color-select"]');
+
+    // Colour picked for a not-yet-booked job — kept local to this page
+    // (Google's quick-add link has no way to set an event's colour), shown
+    // as a badge here so it's obvious what's intended once it's actually
+    // booked and coloured on the calendar itself.
+    if (colorSelect) {
+      const colorKey = "ff-quote-color-" + quote.id;
+      let savedColor = "";
+      try { savedColor = localStorage.getItem(colorKey) || ""; } catch (err) {}
+      colorSelect.value = savedColor;
+
+      function renderColorBadge() {
+        const badgesEl = card.querySelector(".badges");
+        const existing = badgesEl.querySelector(".badge.team-color");
+        if (existing) existing.remove();
+        const c = TEAM_COLORS[colorSelect.value];
+        if (c) {
+          const span = document.createElement("span");
+          span.className = "badge team-color";
+          span.style.background = c.hex + "22";
+          span.style.color = c.hex;
+          span.innerHTML = `<span class="team-dot" style="background:${c.hex}"></span>${c.name}`;
+          badgesEl.appendChild(span);
+        }
+      }
+      renderColorBadge();
+
+      colorSelect.addEventListener("change", () => {
+        try {
+          if (colorSelect.value) localStorage.setItem(colorKey, colorSelect.value);
+          else localStorage.removeItem(colorKey);
+        } catch (err) {}
+        renderColorBadge();
+      });
+    }
 
     // Renders the who/note line (and the calendar defaults) from the base
     // quote data, or from a saved screenshot-extraction override if one
@@ -1140,9 +1204,14 @@
 
     addBtn.addEventListener("click", () => {
       if (!startDateInput.value) return;
+      let details = detailsInput.value.trim();
+      const pickedColor = colorSelect && TEAM_COLORS[colorSelect.value];
+      if (pickedColor) {
+        details = details ? `${details} — Team colour: ${pickedColor.name}` : `Team colour: ${pickedColor.name}`;
+      }
       const url = buildCalendarUrl(
         titleInput.value.trim(),
-        detailsInput.value.trim(),
+        details,
         locationInput.value.trim(),
         startDateInput.value,
         endDateInput.value || startDateInput.value
@@ -1333,46 +1402,72 @@
     items.slice().sort(byQuoteNumber).forEach(q => listEl.appendChild(buildCard(q)));
   }
 
+  const groupToggle = document.getElementById("groupUnbookedToggle");
+
   // "This week" is anchored to today's actual Sat–Fri window, not just
   // whichever week happens to be newest in the data — otherwise a quiet
   // week (no new approvals yet) would wrongly keep last week's approvals
   // labelled "This week" and unfolded instead of rolling them into a
   // collapsed section like every other past week.
-  const { weeks, noDate } = groupByWeek(quotes);
-  const now = new Date();
-  const todayUtc = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
-  const thisWeekInfo = weekInfoFor(todayUtc);
-  const hasThisWeekData = weeks.length > 0 && weeks[0].key === thisWeekInfo.key;
-  const thisWeekItems = hasThisWeekData ? weeks[0].items : [];
-  const olderWeeks = hasThisWeekData ? weeks.slice(1) : weeks;
+  //
+  // When the "group jobs awaiting booking" toggle is on, unbooked jobs are
+  // pulled out into their own always-open section up top instead of being
+  // scattered across whichever week they were originally approved in — the
+  // weekly sections below then only ever contain already-booked jobs.
+  function renderList() {
+    listEl.innerHTML = "";
 
-  const heading = document.createElement("div");
-  heading.className = "thisweek-heading";
-  heading.textContent = `This week · ${thisWeekInfo.label.replace("Week of ", "")}`;
-  listEl.appendChild(heading);
+    const grouping = groupToggle.checked;
+    const unbooked = quotes.filter(q => !q.bookedDate);
+    const weeklyItems = grouping ? quotes.filter(q => q.bookedDate) : quotes;
 
-  if (thisWeekItems.length === 0 && noDate.length === 0) {
-    const empty = document.createElement("p");
-    empty.className = "meta";
-    empty.style.margin = "0 0 20px";
-    empty.textContent = "No new approvals yet this week.";
-    listEl.appendChild(empty);
-  } else {
-    appendCards([...thisWeekItems, ...noDate]);
+    if (grouping && unbooked.length > 0) {
+      const awaitingHeading = document.createElement("div");
+      awaitingHeading.className = "thisweek-heading";
+      awaitingHeading.textContent = `Awaiting booking · ${unbooked.length} ${unbooked.length === 1 ? "job" : "jobs"}`;
+      listEl.appendChild(awaitingHeading);
+      appendCards(unbooked);
+    }
+
+    const { weeks, noDate } = groupByWeek(weeklyItems);
+    const now = new Date();
+    const todayUtc = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+    const thisWeekInfo = weekInfoFor(todayUtc);
+    const hasThisWeekData = weeks.length > 0 && weeks[0].key === thisWeekInfo.key;
+    const thisWeekItems = hasThisWeekData ? weeks[0].items : [];
+    const olderWeeks = hasThisWeekData ? weeks.slice(1) : weeks;
+
+    const heading = document.createElement("div");
+    heading.className = "thisweek-heading";
+    heading.textContent = `This week · ${thisWeekInfo.label.replace("Week of ", "")}`;
+    listEl.appendChild(heading);
+
+    if (thisWeekItems.length === 0 && noDate.length === 0) {
+      const empty = document.createElement("p");
+      empty.className = "meta";
+      empty.style.margin = "0 0 20px";
+      empty.textContent = grouping ? "No newly-booked jobs this week." : "No new approvals yet this week.";
+      listEl.appendChild(empty);
+    } else {
+      appendCards([...thisWeekItems, ...noDate]);
+    }
+
+    olderWeeks.forEach(w => {
+      const details = document.createElement("details");
+      details.className = "week";
+      const summary = document.createElement("summary");
+      summary.innerHTML = `${w.label} <span class="n">· ${w.items.length} ${w.items.length === 1 ? "quote" : "quotes"}</span>`;
+      details.appendChild(summary);
+      const body = document.createElement("div");
+      body.className = "week-body";
+      details.appendChild(body);
+      listEl.appendChild(details);
+      w.items.slice().sort(byQuoteNumber).forEach(q => body.appendChild(buildCard(q)));
+    });
   }
 
-  olderWeeks.forEach(w => {
-    const details = document.createElement("details");
-    details.className = "week";
-    const summary = document.createElement("summary");
-    summary.innerHTML = `${w.label} <span class="n">· ${w.items.length} ${w.items.length === 1 ? "quote" : "quotes"}</span>`;
-    details.appendChild(summary);
-    const body = document.createElement("div");
-    body.className = "week-body";
-    details.appendChild(body);
-    listEl.appendChild(details);
-    w.items.slice().sort(byQuoteNumber).forEach(q => body.appendChild(buildCard(q)));
-  });
+  renderList();
+  groupToggle.addEventListener("change", renderList);
 </script>
 
 </body>

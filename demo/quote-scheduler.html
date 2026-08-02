@@ -317,6 +317,64 @@
   }
   .shot-placeholder { color: var(--ink-soft); }
 
+  .ocr-status {
+    font-size: 12px;
+    color: var(--ink-soft);
+    font-style: italic;
+  }
+  .ocr-status.is-error { color: var(--brand-red); font-style: normal; }
+  .ocr-review {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    border: 1px solid var(--accent);
+    background: var(--accent-soft);
+    border-radius: 8px;
+    padding: 10px;
+  }
+  .ocr-review .hint {
+    font-size: 12px;
+    color: var(--ink-soft);
+    margin: 0;
+  }
+  .ocr-review .actions {
+    display: flex;
+    gap: 8px;
+  }
+  .ocr-apply, .ocr-discard {
+    font: inherit;
+    font-size: 12.5px;
+    font-weight: 600;
+    border-radius: 8px;
+    padding: 6px 12px;
+    cursor: pointer;
+  }
+  .ocr-apply {
+    color: #fff;
+    background: var(--accent);
+    border: 1px solid var(--accent);
+  }
+  .ocr-discard {
+    color: var(--ink-soft);
+    background: transparent;
+    border: 1px solid var(--line);
+  }
+  .ocr-applied-badge {
+    font-size: 11.5px;
+    color: var(--accent);
+  }
+  .ocr-revert {
+    font: inherit;
+    font-size: 11.5px;
+    color: var(--ink-soft);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    text-decoration: underline;
+    margin-left: 8px;
+  }
+
   .cal-fields {
     display: flex;
     flex-direction: column;
@@ -473,6 +531,13 @@
 </div>
 
 <script>
+  // Set this to your deployed backend once it's up (see
+  // docs/screenshot-ocr-setup.md) — e.g.
+  // "https://your-project.vercel.app/api/read-quote-screenshot".
+  // Screenshot auto-reading is skipped entirely while this is empty; the
+  // manual "paste into chat with Claude" flow still works either way.
+  const OCR_ENDPOINT = "";
+
   const quotes = [
     {
       id: "QT11004",
@@ -839,6 +904,24 @@
       .replace(/>/g, "&gt;");
   }
 
+  // Screenshot auto-read (when OCR_ENDPOINT is set) writes here instead of
+  // touching the quote data itself, so an extraction can always be
+  // reverted back to the original Invoice2go/email text.
+  function getOverride(id) {
+    try {
+      const raw = localStorage.getItem("ff-quote-override-" + id);
+      return raw ? JSON.parse(raw) : null;
+    } catch (err) {
+      return null;
+    }
+  }
+  function setOverride(id, override) {
+    try { localStorage.setItem("ff-quote-override-" + id, JSON.stringify(override)); } catch (err) {}
+  }
+  function clearOverride(id) {
+    try { localStorage.removeItem("ff-quote-override-" + id); } catch (err) {}
+  }
+
   function buildCard(quote) {
     const card = document.createElement("div");
     card.className = "card" + (quote.example ? " is-example" : "");
@@ -859,20 +942,21 @@
           ${quote.example ? '<span class="badge example">Example</span>' : ""}
         </div>
       </div>
-      <div class="detail"><span class="who">${quote.who}</span> — ${quote.note}</div>
+      <div class="detail" data-role="detail"></div>
       ${quote.viewUrl ? `
       <div class="shot-row">
         <button class="shot-btn" type="button" data-role="shot-btn">📷 Upload screenshot</button>
         <input type="file" accept="image/*" data-role="shot-input" hidden />
         <div class="shot-area" data-role="shot-area" tabindex="0"></div>
+        <div class="ocr-status" data-role="ocr-status" hidden></div>
       </div>
       ` : ""}
       <div class="cal-fields">
         <label class="field wide">Event title
-          <input type="text" data-role="cal-title" value="${escapeAttr(customerName(quote.who))}" />
+          <input type="text" data-role="cal-title" />
         </label>
         <label class="field wide">Location
-          <input type="text" data-role="cal-location" value="${escapeAttr(quote.location || "")}" />
+          <input type="text" data-role="cal-location" />
         </label>
         <label class="field wide">Description
           <input type="text" data-role="cal-details" value="${escapeAttr(quote.id)}" />
@@ -889,12 +973,35 @@
       </div>
     `;
 
+    const detailEl = card.querySelector('[data-role="detail"]');
     const titleInput = card.querySelector('[data-role="cal-title"]');
     const locationInput = card.querySelector('[data-role="cal-location"]');
     const detailsInput = card.querySelector('[data-role="cal-details"]');
     const startDateInput = card.querySelector('[data-role="date-start"]');
     const endDateInput = card.querySelector('[data-role="date-end"]');
     const addBtn = card.querySelector(".add-cal");
+
+    // Renders the who/note line (and the calendar defaults) from the base
+    // quote data, or from a saved screenshot-extraction override if one
+    // exists for this quote.
+    function renderDetail() {
+      const override = getOverride(quote.id);
+      const display = override ? { ...quote, ...override } : quote;
+      detailEl.innerHTML = `
+        <span class="who">${display.who}</span> — ${display.note}
+        ${override ? `<span class="ocr-applied-badge">✨ From screenshot</span><button class="ocr-revert" type="button" data-role="ocr-revert">Revert</button>` : ""}
+      `;
+      titleInput.value = customerName(display.who);
+      locationInput.value = display.location || "";
+      const revertBtn = detailEl.querySelector('[data-role="ocr-revert"]');
+      if (revertBtn) {
+        revertBtn.addEventListener("click", () => {
+          clearOverride(quote.id);
+          renderDetail();
+        });
+      }
+    }
+    renderDetail();
 
     function refreshState() {
       addBtn.disabled = !startDateInput.value;
@@ -927,12 +1034,83 @@
       const shotBtn = card.querySelector('[data-role="shot-btn"]');
       const shotInput = card.querySelector('[data-role="shot-input"]');
       const shotArea = card.querySelector('[data-role="shot-area"]');
+      const ocrStatus = card.querySelector('[data-role="ocr-status"]');
       const shotKey = "ff-quote-shot-" + quote.id;
+
+      function setOcrStatus(text, isError) {
+        if (!text) {
+          ocrStatus.hidden = true;
+          ocrStatus.textContent = "";
+          return;
+        }
+        ocrStatus.hidden = false;
+        ocrStatus.textContent = text;
+        ocrStatus.classList.toggle("is-error", !!isError);
+      }
+
+      // Shows the extracted fields for review — nothing is applied to the
+      // card until the user confirms, since a misread client name/address
+      // is worse than no auto-fill at all.
+      function showReview(extracted) {
+        const existing = card.querySelector(".ocr-review");
+        if (existing) existing.remove();
+        const review = document.createElement("div");
+        review.className = "ocr-review";
+        review.innerHTML = `
+          <p class="hint">Read from the screenshot — check it over, then apply or discard.</p>
+          <label class="field wide">Client
+            <input type="text" data-role="ocr-who" value="${escapeAttr(extracted.who || "")}" />
+          </label>
+          <label class="field wide">Location
+            <input type="text" data-role="ocr-location" value="${escapeAttr(extracted.location || "")}" />
+          </label>
+          <label class="field wide">Job / price
+            <input type="text" data-role="ocr-note" value="${escapeAttr(extracted.note || "")}" />
+          </label>
+          <div class="actions">
+            <button class="ocr-apply" type="button">Apply to card</button>
+            <button class="ocr-discard" type="button">Discard</button>
+          </div>
+        `;
+        ocrStatus.insertAdjacentElement("afterend", review);
+        review.querySelector(".ocr-apply").addEventListener("click", () => {
+          setOverride(quote.id, {
+            who: review.querySelector('[data-role="ocr-who"]').value.trim() || quote.who,
+            location: review.querySelector('[data-role="ocr-location"]').value.trim(),
+            note: review.querySelector('[data-role="ocr-note"]').value.trim() || quote.note
+          });
+          review.remove();
+          renderDetail();
+        });
+        review.querySelector(".ocr-discard").addEventListener("click", () => review.remove());
+      }
+
+      async function runExtraction(dataUrl) {
+        if (!OCR_ENDPOINT) return;
+        setOcrStatus("Reading screenshot…");
+        try {
+          const res = await fetch(OCR_ENDPOINT, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ image: dataUrl })
+          });
+          const data = await res.json();
+          if (!res.ok || data.error) throw new Error(data.error || ("Request failed: " + res.status));
+          setOcrStatus("");
+          showReview(data);
+        } catch (err) {
+          setOcrStatus(
+            "Couldn't read the screenshot automatically — update the card by hand, or paste it into chat with Claude instead" +
+              (err.message ? " (" + err.message + ")" : "") + ".",
+            true
+          );
+        }
+      }
 
       function renderShot(dataUrl) {
         shotArea.innerHTML = dataUrl
           ? `<img src="${dataUrl}" alt="Screenshot for ${quote.id}" />
-             <div class="shot-hint">Attached. Now paste this same screenshot into chat with Claude (mention ${quote.id}) so it can read the details and update this card.</div>
+             <div class="shot-hint">Attached${OCR_ENDPOINT ? "" : " — paste this same screenshot into chat with Claude (mention " + quote.id + ") so it can read the details and update this card"}.</div>
              <button class="shot-clear" type="button" data-role="shot-clear">Remove screenshot</button>`
           : `<span class="shot-placeholder">Click here and paste (Ctrl+V), or use the button above, to attach a screenshot of this estimate</span>`;
         const clearBtn = shotArea.querySelector('[data-role="shot-clear"]');
@@ -945,15 +1123,16 @@
         }
       }
 
-      function storeShot(dataUrl) {
+      function storeShot(dataUrl, isFresh) {
         try { localStorage.setItem(shotKey, dataUrl); } catch (err) {}
         renderShot(dataUrl);
+        if (isFresh) runExtraction(dataUrl);
       }
 
       function readFile(file) {
         if (!file || !file.type || !file.type.startsWith("image/")) return;
         const reader = new FileReader();
-        reader.onload = () => storeShot(reader.result);
+        reader.onload = () => storeShot(reader.result, true);
         reader.readAsDataURL(file);
       }
 

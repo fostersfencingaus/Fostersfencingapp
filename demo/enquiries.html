@@ -212,12 +212,18 @@
   }
   .banner strong { color: var(--accent); }
 
+  .toolbar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 26px;
+  }
   .view-toggle {
     display: inline-flex;
     border: 1px solid var(--line);
     border-radius: 100px;
     padding: 3px;
-    margin-bottom: 26px;
     background: var(--paper-raised);
   }
   .view-toggle button {
@@ -234,6 +240,31 @@
   .view-toggle button.active {
     background: var(--accent);
     color: var(--paper-raised);
+  }
+  .primary-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink-soft);
+    cursor: pointer;
+    user-select: none;
+  }
+  .primary-toggle input {
+    accent-color: var(--accent);
+    width: 15px;
+    height: 15px;
+    cursor: pointer;
+  }
+  .section-divider {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--steel);
+    border-top: 1px dashed var(--line);
+    padding-top: 18px;
+    margin: 6px 0 20px;
   }
 
   section.suburb-group {
@@ -399,9 +430,15 @@
   <strong>Real, live enquiries.</strong> The 204 enquiries below are pulled from your inbox 12&nbsp;Jul–2&nbsp;Aug&nbsp;2026 — cloudmail contact-form submissions, 46 hipages lead invitations, and three service.com.au job postings (marked below; hipages leads don't include contact details until accepted, and the account currently shows 0 lead credits). See <code>docs/email-parsing-rules.md</code> for how enquiries are detected.
 </div>
 
-<div class="view-toggle" id="viewToggle" role="tablist">
-  <button type="button" role="tab" aria-selected="true" data-mode="suburb" class="active">By suburb</button>
-  <button type="button" role="tab" aria-selected="false" data-mode="date">By date</button>
+<div class="toolbar">
+  <div class="view-toggle" id="viewToggle" role="tablist">
+    <button type="button" role="tab" aria-selected="true" data-mode="suburb" class="active">By suburb</button>
+    <button type="button" role="tab" aria-selected="false" data-mode="date">By date</button>
+  </div>
+  <label class="primary-toggle">
+    <input type="checkbox" id="primaryFirstToggle" />
+    📍 Primary area first
+  </label>
 </div>
 
 <div id="current"></div>
@@ -2167,6 +2204,22 @@
     }
   ];
 
+  // Primary service area — mostly within a ~10km radius of the Greenwood
+  // base. The "Primary area first" toggle surfaces these suburbs (and
+  // flags them with 📍) without hiding anything outside the zone.
+  const PRIMARY_SUBURBS = new Set([
+    "Alexander Heights", "Balcatta", "Balga", "Ballajura", "Beldon", "Carine",
+    "City Beach", "Connolly", "Craigie", "Currambine", "Darch", "Doubleview",
+    "Duncraig", "Edgewater", "Floreat", "Girrawheen", "Gnangara", "Gwelup",
+    "Hamersley", "Heathridge", "Hillarys", "Hocking", "Innaloo", "Joondalup",
+    "Joondanna", "Kallaroo", "Karrinyup", "Kingsley", "Koondoola", "Landsdale",
+    "Madeley", "Malaga", "Marangaroo", "Marmion", "Mirrabooka", "Mullaloo",
+    "Nollamara", "North Beach", "Ocean Reef", "Osborne Park", "Padbury",
+    "Pearsall", "Scarborough", "Sinagra", "Sorrento", "Stirling", "Tapping",
+    "Trigg", "Tuart Hill", "Wangara", "Wanneroo", "Warwick", "Watermans Bay",
+    "Wembley", "Westminster", "Woodlands", "Woodvale", "Yokine"
+  ]);
+
   // Cleans up free-typed locations: strips a trailing WA postcode into its
   // own field, drops stray commas, and title-cases the rest — so "GREENWOOD"
   // and a future "Greenwood 6024" would group under the same heading instead
@@ -2191,7 +2244,10 @@
     return { name, postcode, region: region || null };
   }
 
-  function groupBySuburb(list) {
+  // `primaryFirst` reorders the suburb groups so ones in PRIMARY_SUBURBS
+  // come first (with a divider before the rest) — nothing is hidden,
+  // just resorted so the target service area is easy to scan.
+  function groupBySuburb(list, primaryFirst) {
     const groups = {};
     const needsReview = [];
     list.forEach(item => {
@@ -2204,7 +2260,18 @@
       if (!groups[name]) groups[name] = [];
       groups[name].push(enriched);
     });
-    const clean = Object.keys(groups).sort().map(suburb => ({ heading: suburb, items: groups[suburb] }));
+    const allNames = Object.keys(groups).sort();
+    const toGroup = suburb => ({ heading: suburb, items: groups[suburb], isPrimary: PRIMARY_SUBURBS.has(suburb) });
+    let clean;
+    if (primaryFirst) {
+      const primaryNames = allNames.filter(n => PRIMARY_SUBURBS.has(n));
+      const otherNames = allNames.filter(n => !PRIMARY_SUBURBS.has(n));
+      clean = primaryNames.map(toGroup);
+      if (primaryNames.length && otherNames.length) clean.push({ divider: "Other suburbs" });
+      clean.push(...otherNames.map(toGroup));
+    } else {
+      clean = allNames.map(toGroup);
+    }
     if (needsReview.length) {
       clean.push({ heading: "Needs suburb confirmation", items: needsReview });
     }
@@ -2214,15 +2281,16 @@
   // Same entries, bucketed by the exact day they came in (newest day
   // first) instead of by suburb — so you can scan straight down a
   // Friday, say, and see everything that landed that day regardless of
-  // suburb.
-  function groupByDate(list) {
+  // suburb. `primaryFirst` sorts each day's entries so primary-area ones
+  // (📍) float to the top of that day instead of reordering the days.
+  function groupByDate(list, primaryFirst) {
     const weekdayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
     const groups = {};
     list.forEach(item => {
       let enriched = item;
       if (!item.unclear) {
         const { name, postcode, region } = normalizeSuburb(item.raw);
-        enriched = { ...item, suburbName: name, postcode, region };
+        enriched = { ...item, suburbName: name, postcode, region, isPrimary: PRIMARY_SUBURBS.has(name) };
       }
       const key = item.date || "Date unclear";
       if (!groups[key]) groups[key] = [];
@@ -2231,9 +2299,13 @@
     return Object.keys(groups)
       .map(date => {
         const parsed = parseEntryDate(date);
+        let items = groups[date];
+        if (primaryFirst) {
+          items = [...items].sort((a, b) => (b.isPrimary ? 1 : 0) - (a.isPrimary ? 1 : 0));
+        }
         return {
           heading: parsed ? `${weekdayNames[parsed.getUTCDay()]} ${date}` : date,
-          items: groups[date],
+          items,
           sortKey: parsed
         };
       })
@@ -2257,7 +2329,9 @@
   // card needs to say which suburb it's for — prepended to the meta line.
   function metaLine(item, showSuburb) {
     const suburbPart = showSuburb
-      ? (item.unclear ? "Suburb unclear — " : `${item.suburbName}${item.postcode ? " " + item.postcode : ""} — `)
+      ? (item.unclear
+          ? "Suburb unclear — "
+          : `${item.isPrimary ? "📍 " : ""}${item.suburbName}${item.postcode ? " " + item.postcode : ""} — `)
       : "";
     const postcodePart = !showSuburb && item.postcode ? " — WA " + item.postcode : "";
     const regionPart = item.region ? " (" + item.region + ")" : "";
@@ -2289,29 +2363,34 @@
   // is set for the "by date" view, where the group heading is a day
   // rather than a suburb name.
   function groupsToHtml(groups, showSuburb, newCutoff) {
-    return groups.map(g => `
-      <section class="suburb-group">
-        <h2 class="suburb-name">${g.heading} <span class="count">${g.items.length} ${g.items.length === 1 ? "enquiry" : "enquiries"}</span></h2>
-        <div class="list">
-          ${g.items.map(item => `
-            <div class="card">
-              <div class="card-top">
-                <span class="who">${item.who}</span>
-                <div class="badges">
-                  ${item.unclear
-                    ? '<span class="badge review">Check suburb</span>'
-                    : (isNew(item, newCutoff) ? '<span class="badge fresh">New</span>' : "")}
+    return groups.map(g => {
+      if (g.divider) {
+        return `<h3 class="section-divider">${g.divider}</h3>`;
+      }
+      return `
+        <section class="suburb-group">
+          <h2 class="suburb-name">${g.isPrimary ? "📍 " : ""}${g.heading} <span class="count">${g.items.length} ${g.items.length === 1 ? "enquiry" : "enquiries"}</span></h2>
+          <div class="list">
+            ${g.items.map(item => `
+              <div class="card">
+                <div class="card-top">
+                  <span class="who">${item.who}</span>
+                  <div class="badges">
+                    ${item.unclear
+                      ? '<span class="badge review">Check suburb</span>'
+                      : (isNew(item, newCutoff) ? '<span class="badge fresh">New</span>' : "")}
+                  </div>
                 </div>
+                <div class="job">${item.job}</div>
+                ${item.email || item.phone ? `<div class="contact">${contactLinks(item)}</div>` : ""}
+                ${item.unclear ? `<div class="meta">Source text: "${item.raw}"</div>` : ""}
+                <div class="meta">${metaLine(item, showSuburb)}</div>
               </div>
-              <div class="job">${item.job}</div>
-              ${item.email || item.phone ? `<div class="contact">${contactLinks(item)}</div>` : ""}
-              ${item.unclear ? `<div class="meta">Source text: "${item.raw}"</div>` : ""}
-              <div class="meta">${metaLine(item, showSuburb)}</div>
-            </div>
-          `).join("")}
-        </div>
-      </section>
-    `).join("");
+            `).join("")}
+          </div>
+        </section>
+      `;
+    }).join("");
   }
 
   // Turns a free-typed "18 Jul 2026" style date into a real Date object so
@@ -2366,7 +2445,7 @@
   // week (no new entries yet) would wrongly keep last week's entries
   // labelled "This week" and unfolded instead of rolling them into a
   // collapsed section like every other past week.
-  function renderCurrentByWeek(containerId, list, mode) {
+  function renderCurrentByWeek(containerId, list, mode, primaryFirst) {
     const el = document.getElementById(containerId);
     const weeks = groupByWeek(list);
     const now = new Date();
@@ -2377,7 +2456,7 @@
     const olderWeeks = hasThisWeekData ? weeks.slice(1) : weeks;
 
     const showSuburb = mode === "date";
-    const groupFn = showSuburb ? groupByDate : groupBySuburb;
+    const groupFn = list => (showSuburb ? groupByDate(list, primaryFirst) : groupBySuburb(list, primaryFirst));
     const newCutoff = newCutoffDate();
 
     const heading = `<div class="thisweek-heading">This week · ${thisWeekInfo.label.replace("Week of ", "")}</div>`;
@@ -2395,7 +2474,8 @@
   }
 
   let viewMode = "suburb";
-  renderCurrentByWeek("current", current, viewMode);
+  let primaryFirst = false;
+  renderCurrentByWeek("current", current, viewMode, primaryFirst);
 
   document.getElementById("viewToggle").addEventListener("click", e => {
     const btn = e.target.closest("button[data-mode]");
@@ -2406,7 +2486,12 @@
       b.classList.toggle("active", isActive);
       b.setAttribute("aria-selected", isActive ? "true" : "false");
     });
-    renderCurrentByWeek("current", current, viewMode);
+    renderCurrentByWeek("current", current, viewMode, primaryFirst);
+  });
+
+  document.getElementById("primaryFirstToggle").addEventListener("change", e => {
+    primaryFirst = e.target.checked;
+    renderCurrentByWeek("current", current, viewMode, primaryFirst);
   });
 
   const currentSuburbs = new Set(current.filter(c => !c.unclear).map(c => normalizeSuburb(c.raw).name));

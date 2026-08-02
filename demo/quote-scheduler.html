@@ -258,6 +258,21 @@
   .badge.client-reply { background: var(--wait-soft); color: var(--wait); }
   .badge.example { background: var(--line); color: var(--ink-soft); }
   .badge.booked { background: var(--accent-soft); color: var(--accent); }
+  .badge.team-color { display: inline-flex; align-items: center; gap: 5px; font-weight: 700; }
+  .team-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+
+  .legend {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    font-size: 12px;
+    color: var(--ink-soft);
+    margin: -6px 0 18px;
+  }
+  .legend strong { color: var(--ink); font-weight: 600; }
+  .legend-item { display: inline-flex; align-items: center; gap: 5px; }
+  .legend-item .team-dot { width: 9px; height: 9px; }
 
   .detail {
     font-size: 14px;
@@ -519,6 +534,8 @@
 
 <div class="stat-row" id="statRow"></div>
 
+<div class="legend" id="teamLegend"></div>
+
 <div class="banner">
   <strong>Real, live approvals.</strong> The 32 quotes below are pulled from your inbox 12&nbsp;Jul–1&nbsp;Aug&nbsp;2026 — Invoice2go approval notifications and client replies naming a quote number with go-ahead language. See <code>docs/email-parsing-rules.md</code> for the detection rules this is built on.
 </div>
@@ -539,6 +556,23 @@
   // manual "paste into chat with Claude" flow still works either way.
   const OCR_ENDPOINT = "";
 
+  // Google Calendar's fixed event-colour palette, matched to each quote's
+  // colorId from the booking calendar event — colour = which team/crew it's
+  // booked under. Quotes not yet booked (no calendar event) have no colorId.
+  const TEAM_COLORS = {
+    "1": { name: "Lavender", hex: "#7986cb" },
+    "2": { name: "Sage", hex: "#33b679" },
+    "3": { name: "Grape", hex: "#8e24aa" },
+    "4": { name: "Flamingo", hex: "#e67c73" },
+    "5": { name: "Banana", hex: "#f6bf26" },
+    "6": { name: "Tangerine", hex: "#f4511e" },
+    "7": { name: "Peacock", hex: "#039be5" },
+    "8": { name: "Graphite", hex: "#616161" },
+    "9": { name: "Blueberry", hex: "#3f51b5" },
+    "10": { name: "Basil", hex: "#0b8043" },
+    "11": { name: "Tomato", hex: "#d60000" }
+  };
+
   const quotes = [
     {
       id: "QT11004",
@@ -549,6 +583,7 @@
       location: "65 Aylesford Dr, Marangaroo, WA 6064",
       date: "12 Jul 2026",
       bookedDate: "13 Aug 2026",
+      colorId: "5",
       viewUrl: "https://link.invoice2go.com/f/a/ujT0WeU5DWZy4-OzcrGOKg~~/AAQRxRA~/O0I0Kj7g8Kd44t3DWYYXS76CXfZQEFLmDO3USyxOnaOjuiy-q9umdskg2ujaLyHWaUO24p1hyb54g-qw5G7tYd8vXT1njnbm2IJ9U0oXY4Zc9rhkA_OPh1xBSzCDCZFcuCKvxNoX2jyJUwkdM4NUr8ZYvVsAm5wkkP0b7hJJYUp7rsHiqcO63i5BfHxHXPyXhKjLkuRjmuMliLnRkCsgQg~~"
     },
     {
@@ -571,6 +606,7 @@
       location: "39 Randell Cres, Ocean Reef, WA 6027",
       date: "15 Jul 2026",
       bookedDate: "26 Aug 2026",
+      colorId: "11",
       viewUrl: "https://link.invoice2go.com/f/a/7Xa7QO2J8LPPdyeHEoQG7A~~/AAQRxRA~/7_jYq14bH6GMYZJBUfoEZayKoKSufo84Bim0aaVmspNIxnxjAF_VjaboWc5Q5cvtRGwbKZvAiqA-hdl6tZjRZtZXWR_Kj1OeKUIac2IZKAnO3UChyGQnwq42PjEEMv6Su4khtnV0pigrKw_7ZfXrBUwdjbcpo27CVcs2TwupAZQtI_aY90geUetmQZHZjSkTahvmePiZpEC_iF51-9X7Og~~"
     },
     {
@@ -593,6 +629,7 @@
       location: "5 Wilton Cl, Ballajura, WA 6066",
       date: "16 Jul 2026",
       bookedDate: "27 Aug 2026",
+      colorId: "5",
       viewUrl: "https://link.invoice2go.com/f/a/F0LwcQVW28upBd4HwCezyQ~~/AAQRxRA~/VWheZbBWgBGHW7Cw5ye-koONUU2WkEcVmL8mhkPcSXENWjHeVgxHCCDlKJq7bHHU1W-ivh7WCG01eaGo-1kZgkpD2P8BOwu4ay2jzRhRA2q-D-Ll1xOOWzjUbImXV1YR9AFVxhhmfmDfPfQdvJoMaH_DScIRN4cHto_bRrnIxJuyr65LeBwUWbGPpFIDR418gkSBDSNc8hAHBlYshiqs2A~~"
     },
     {
@@ -604,6 +641,7 @@
       location: "6A Olivia Cl, Alexander Heights, WA 6064",
       date: "15 Jul 2026",
       bookedDate: "20 Aug 2026",
+      colorId: "5",
       viewUrl: "https://link.invoice2go.com/f/a/cX_DtKvBLRWriaXc7ab2aQ~~/AAQRxRA~/ViODNsq822MKprK1DvzGZH-IXDT1uRmQ8zRKzqGQXgnqzLXnT43PWIuynQME-3f4vgD69lUx73fieHEsFAzqVq9wSSpgbVJ7JrTxyyB631qszO6su02S4ujj4HHFCyqd0mqxoQBb1Oghlld0c57N953Rf8u3omzt3K8wUQ6PeajrEK4syu-l8nqADq7HNvQ6WI9SDgyrwP5TZ4c6jNEd4Q~~"
     },
     {
@@ -614,6 +652,7 @@
       note: "Dig out and remove gate plus panel; supply and install colorbond gate approx. 1m wide, 50x50 post, dlatch, 1.2m colorbond panel. Total $1,200 (quoted 11/07/2026, approved 12 Jul 2026)",
       date: "12 Jul 2026",
       bookedDate: "21 Aug 2026",
+      colorId: "5",
       location: "3c Jason Rd, Balcatta, WA 6021",
       viewUrl: "https://link.invoice2go.com/f/a/te0Ry5yGKIDsjJzkuK_SjA~~/AAQRxRA~/-6FiNMrGNPhFT84UvdyJ3FxI-2Cy7TI3exKD8aIONtyHKT_VsnMfVP988KTkBodnHhsGXPyhUsLZ83ZlsXUznRXd7xEE51P3o5mcDCEJLSDViJldublyMl775hGZpL7SbUJUH_lu-oUwumKDQmvN2m7JTni53DXRQ9KRW2LYYOV14z0_GUE5JbnellUXCGReHOP63j3z_MPCTvl41BE--Q~~"
     },
@@ -670,6 +709,7 @@
       location: "19 Edmonton Pl, Kingsley, WA 6026",
       date: "18 Jul 2026",
       bookedDate: "31 Aug 2026",
+      colorId: "11",
       viewUrl: "https://link.invoice2go.com/f/a/PhhVrGRoCVEQhb1DnF5jtQ~~/AAQRxRA~/cZQPmY4hGPnMo6eZX4YxdKPajdxWUox2f5L2qUS6nX8H8-0HAEjXi7lJ6N0rx26VA0CpAjdaiNU4_O8P4a3AyVH-RBfzw8fAXgwltNeV9xeTczqK-EGUkN4niQ4adzmH-Og4wu7KfTpN-A8pY0uB3EO9g2UE8Sb-kH_6XwGna67EnUN-YiJW63xfLsIeKPze12U7ZWmoFe8zB9dgC_OOtQ~~"
     },
     {
@@ -681,6 +721,7 @@
       location: "19 Edmonton Pl, Kingsley, WA 6026",
       date: "18 Jul 2026",
       bookedDate: "31 Aug 2026",
+      colorId: "11",
       viewUrl: "https://link.invoice2go.com/f/a/zjUvPU3s4Td68nsKqJv2mA~~/AAQRxRA~/XXOhFP1lbTq-jHAz2Q23SOut5Uw5Carck3vQtqHr7pypmBl1gFpk_kuDfcNhXXNn7PatMUiY5XU0SCSBUOOHKSNGutZMrXvfiyPwP6Kj4W8XBfd2_N8YoiBBxBsu9EwjKnawo2-WOlSH3obh7Vf8IODIJaTAL8dvPiIFuRjxSEitOWC-fBhqVrsUnSZPFOmM6bvseK5vz-zLkaS6KKVRrA~~"
     },
     {
@@ -692,6 +733,7 @@
       location: "19 Edmonton Pl, Kingsley, WA 6026",
       date: "18 Jul 2026",
       bookedDate: "31 Aug 2026",
+      colorId: "11",
       viewUrl: "https://link.invoice2go.com/f/a/EChNAxKQU_SYR-0Mr1BwxA~~/AAQRxRA~/ex5pDzCYTFKrRrp-6Thhom0_9b85yTVbGFSF7toZdfyczdUQa6vyzOCcst_Ur4arUpQ88kSKuypKM-wTaqyI09_PfuhlDhifIT9I9E9k6nSAENwkJYjDiMo20VrgY196NxghRCOIa92WlreK6s9fqpT4y89VpTxiBWdpgrLbY4nLin-azQDSNe455A3Ljt53AKovYaQLWUpRJeAcG18xpQ~~"
     },
     {
@@ -703,6 +745,7 @@
       location: "75 Apple Blossom Dr, Mirrabooka, WA 6061",
       date: "20 Jul 2026",
       bookedDate: "11 Sep 2026",
+      colorId: "11",
       viewUrl: "https://r.2go.com/IvHgsXwo"
     },
     {
@@ -714,6 +757,7 @@
       location: "1 Avocet Ct, Kingsley, WA 6026",
       date: "20 Jul 2026",
       bookedDate: "9 Sep 2026",
+      colorId: "5",
       viewUrl: "https://link.invoice2go.com/f/a/N7UmjkVa1o0nvi7gEbfJPw~~/AAQRxRA~/FDBy1PZVRQ76-YK4uf4qFMviwkoXK6Rlvf84GyzQsEen3uUjX19hX8uv03mhV8lRT3bov0ihaOD_R4DXnkhMnhEJ2u08ei7Q_hGvIT80ouLrBI-kfNO8p8A0-Hz7c21EUyijbHsdZSSDCZAwydZzIsohjZhepofB5v4Yt3cQCJJv9qSi3X_NgsW9JlKyIdIfY15zvGArDMR9-gCsGAg0IA~~"
     },
     {
@@ -725,6 +769,7 @@
       location: "37 Roche Rd, Duncraig, WA 6023",
       date: "21 Jul 2026",
       bookedDate: "3 Sep 2026",
+      colorId: "5",
       viewUrl: "https://link.invoice2go.com/f/a/ctgCKkY0w9R4sZHNiCzP9A~~/AAQRxRA~/s11Qg1xSZUwhu1hm10HEZpxwAQTp0AkCufiJ9TCu0YM3_Y8YppdmrNguc3MIj37D2RwAePH6vOA_ol1FfJ95Fht9NuEAw1D0bexITYz_Vly2Dj7AMNyUoud33RgloqB69U6gWunZGXu3l8sHa17pOsE3pGQTCGQDUidGNXLLetHfaCmWeCHIhgF3Z-a07Vd9kNK-fHPLKPs99pVnkGDE_w~~"
     },
     {
@@ -736,6 +781,7 @@
       location: "5 Wilton Cl, Ballajura, WA 6066",
       date: "22 Jul 2026",
       bookedDate: "27 Aug 2026",
+      colorId: "5",
       viewUrl: "https://link.invoice2go.com/f/a/CewfDFobJ4FDMEauP_Fv9A~~/AAQRxRA~/-HDp9EY90t0dbfK5fdEQSmNfsvKimby-OoDA3QA87txj3EjR1gkWFZmmwdkBEJuUMePYKRqHWpnynx26YjTzkcOLfTLLhgOYvoBtN2XuAKKLiIUcqge87XKskpStSq5qCeLCyuTdmoFLPvshXZEAGcDsQjtzRntOMifVU095TaLGQ_qNKIaKnBDc200FvImvey7nJXUHBkdSDygO-dvCZg~~"
     },
     {
@@ -747,6 +793,7 @@
       location: "6 Meredith Way, Dianella, WA 6059",
       date: "21 Jul 2026",
       bookedDate: "4 Sep 2026",
+      colorId: "11",
       viewUrl: "https://link.invoice2go.com/f/a/DmUscmyRYl5CrnUaxzz7Qg~~/AAQRxRA~/PzZBbs2cNt_hnVUEBVUnOvyu8GbGLg53LD7RudAptAwUlF8x9flhYQctk8c96DeFIoBfRSnDQeh2bs18mVZpJdeZ3uvlOu2GetYTCjrK986hpacVZL2H0Wb1etA5wq1S5p7KLgh4VXYUHCTW_4GV0coHE9ruB6e0uptOx14cjhEu1hkYxa4M5FDLOUfVWqdd18qa91TPZ3Y7KIm0rXG_Uw~~"
     },
     {
@@ -758,6 +805,7 @@
       location: "6 Meredith Way, Dianella, WA 6059",
       date: "21 Jul 2026",
       bookedDate: "4 Sep 2026",
+      colorId: "11",
       viewUrl: "https://link.invoice2go.com/f/a/lwFq3VAo8IFSuV016DvFYg~~/AAQRxRA~/lRa6k1ISwerOfoLhmdrgWFaJNJ1iaLTzSK2TxMUBSnA3WeGW0EEGOfSfPwCaXtslT-lE0EpGDv2A5eKKvsfzROl1uE8cyskOwqk4F9OPDsPwtR6eDLvA-mEUZgU9mCGAJDQ4RT4mWfT2wRnazqcGp222BTILLIiJhQqyT0eA6t6agX7GfnnVF-Qu0FbfAKO3ITpUXFGRmhvWIDZfNb5CAQ~~"
     },
     {
@@ -769,6 +817,7 @@
       location: "7 Mitcham St, Wembley Downs, WA 6019",
       date: "18 Jul 2026",
       bookedDate: "2 Sep 2026",
+      colorId: "11",
       viewUrl: "https://link.invoice2go.com/f/a/sekktMEW9N-06b8fbVsOvw~~/AAQRxRA~/Sp4sELeiHKAOR8_d7CDX3JOSQPlnedVtNvseTtWuXngCEKIfwJ3NNUZnXH4OofAPoVvGeBqC73o-5YaUdKbWjZMuyuVKWT9OufZaXKRHzk_KfH5ls_4dgm4hQie4iQYbd8tIgGfyuQWN4jaTiQJ09pwTuKVyCFNuoqLhxfJSExuviTWl_DjefBDa2mBlxWXv54LDro2oSCVdrQ9bKTdLyw~~"
     },
     {
@@ -791,6 +840,7 @@
       location: "7 Granton Way, Kingsley, WA 6026",
       date: "22 Jul 2026",
       bookedDate: "7 Sep 2026",
+      colorId: "11",
       viewUrl: "https://link.invoice2go.com/f/a/mBXMotGRvDsDaNwPotUDgw~~/AAQRxRA~/P7fWuuj4Jd32ykbjcteduUZB-n9S_cWIncHTMduMu8YbpmNGvZITz4RQScCW2_NNzK5DRZY_352fDFEshfCE7E2hPFcUB1pXlyXIBKMNHVlaVWOX142zxqMK67DQPS-rsfLvRcJf2VbWI53zP6Noby-tfwToYg3YUFzUl-xQMRVaY2gkeZSnKiiqTdWHFvF9-stAjZQ-_C0kYdjcBbh1NA~~"
     },
     {
@@ -813,6 +863,7 @@
       location: "5 Melia Rd, Duncraig, WA 6023",
       date: "23 Jul 2026",
       bookedDate: "1 Aug 2026",
+      colorId: "2",
       viewUrl: "https://link.invoice2go.com/f/a/dBid-tSZyGoKmDQphhIP4Q~~/AAQRxRA~/nN2ISVPfy59kTB9WY1Be7dQE2IsOgrSrrzqfYK-4YJMia_AdWtUIFasyb0WOOryf-1VIjkB6eGXwDvNgprAsgFHz38Os3PJtgtJwAQrUy9AhtQTKdFe8N7G1KMa3uCGKmqIh9tdl0TPotIXq7sLUy5EaOEGypPmHQ1TpuKKrD5rK1rxj1NdifdS2M_0JIR0Q3Q9HHrDFQI_FSanE_4tkAA~~"
     },
     {
@@ -824,6 +875,7 @@
       location: "7 Granton Way, Kingsley, WA 6026",
       date: "23 Jul 2026",
       bookedDate: "7 Sep 2026",
+      colorId: "11",
       viewUrl: "https://link.invoice2go.com/f/a/-usd3h8dl47Wz2uLHqQXfQ~~/AAQRxRA~/rkCkT0DuCoAKKfddjXmi5WUGnNZHulehrODxZe1adM3h3HqgWAg768Me6PKmRU_mBt8au2DOZyZ8-wXFBKTMCJ2DcuQ796sEWAaZjOy9mRS4UelueWNW4eYdr63jpPSSSQVaohRLHSP9971TbJy98WKAtHc_Jw8updTzneoE_4bvSFUc0o-hSyuf_8viz9AiGf_5zHNdYStgIgNNv9gbOA~~"
     },
     {
@@ -867,6 +919,7 @@
       location: "30 Shepherds Bush Dr, Kingsley, WA 6026",
       date: "30 Jul 2026",
       bookedDate: "16 Sep 2026",
+      colorId: "5",
       viewUrl: "https://r.2go.com/HyQcrIZ5"
     },
     {
@@ -878,6 +931,7 @@
       location: "3 Sapium Way, Woodvale, WA 6026",
       date: "30 Jul 2026",
       bookedDate: "14 Sep 2026",
+      colorId: "11",
       viewUrl: "https://link.invoice2go.com/f/a/dTIvrs3F5PBnVsRj00S4Vw~~/AAQRxRA~/n-nr2MkRF1XDEf9M0AXAXDlJ_xzlAq0KFfU6VebfEe_26jxJYxcvZvpDRIuvz36FFEes_cdSZla5C_tu0Khb2m_SFNavTinWiuChZcPD9Y2LrNwKHbi3eiUHlNdaJvvSvlCtzRFUbonQukSk9QzzEXgoElE1gGcBfyIMlbdh6tJ6sLDg7H95DXYlnNCHrPTprdrbfyKAYdO3DDO8JEhU-w~~"
     },
     {
@@ -905,6 +959,18 @@
     <div class="stat"><span class="n">${replyCount}</span><span class="label">Client "go ahead" replies</span></div>
     <div class="stat"><span class="n">${realCount}</span><span class="label">From your real inbox</span></div>
   `;
+
+  // Colours come straight from each job's Google Calendar event (colorId) —
+  // whichever colour you've booked it under on the calendar shows up here.
+  const teamLegend = document.getElementById("teamLegend");
+  const usedColorIds = [...new Set(quotes.map(q => q.colorId).filter(Boolean))]
+    .sort((a, b) => a - b);
+  if (usedColorIds.length) {
+    teamLegend.innerHTML = `<strong>Calendar colours in use:</strong>` + usedColorIds.map(id => {
+      const c = TEAM_COLORS[id];
+      return c ? `<span class="legend-item"><span class="team-dot" style="background:${c.hex}"></span>${c.name}</span>` : "";
+    }).join("");
+  }
 
   // "Han Weikoay — 0412 005 973 — han@cell-media.com" -> "Han Weikoay"
   function customerName(who) {
@@ -973,6 +1039,7 @@
         <div class="badges">
           ${sourceBadge}
           ${quote.bookedDate ? `<span class="badge booked">✅ Booked — ${quote.bookedDate}</span>` : ""}
+          ${quote.colorId && TEAM_COLORS[quote.colorId] ? `<span class="badge team-color" style="background:${TEAM_COLORS[quote.colorId].hex}22; color:${TEAM_COLORS[quote.colorId].hex}"><span class="team-dot" style="background:${TEAM_COLORS[quote.colorId].hex}"></span>${TEAM_COLORS[quote.colorId].name}</span>` : ""}
           ${quote.example ? '<span class="badge example">Example</span>' : ""}
         </div>
       </div>

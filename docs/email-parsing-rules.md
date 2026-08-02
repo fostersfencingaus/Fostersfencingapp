@@ -14,7 +14,10 @@ A quote is ready to schedule once either of these turns up in the inbox:
 2. **Client reply naming a quote number**
    An email from a client (not from Invoice2go, not an internal forward) whose body contains a quote number matching `QT\d{5,}` alongside intent language — e.g. "go ahead", "happy to proceed", "accept", "please book us in". Quote number and intent phrase should appear in the same message to avoid false positives (e.g. a client asking a question that happens to reference an old quote number).
 
-Quote numbers are consecutive from `QT10001`, which is what the demo uses to sort the list oldest-first.
+3. **Client go-ahead with no quote number mentioned**
+   An email from a client with the same intent language as above ("go ahead", "proceed", "accept", "book us in", etc.) but that doesn't name a `QT#####` anywhere — e.g. a verbal-style reply on an older thread, or a client accepting a quote sent outside Invoice2go. Same scrutiny applies: it has to be genuine acceptance of a quote/job, not just a scheduling question or a reply about something else. These get an `id` that isn't a real quote number (kept distinguishable from Invoice2go's `QT#####` sequence so it's never mistaken for one) and are looked up manually in Invoice2go/email history to find which quote they're accepting.
+
+Quote numbers are consecutive from `QT10001`, which is what the demo uses to sort the list oldest-first. Entries are actually sorted by their `date` field (not by parsing the id), since not every entry has a `QT#####` id.
 
 ## Regex used for extraction
 

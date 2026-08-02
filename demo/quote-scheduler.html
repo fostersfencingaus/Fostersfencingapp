@@ -808,7 +808,7 @@
       date: "1 Aug 2026",
       viewUrl: "https://link.invoice2go.com/f/a/yBXsHPwqwI6KfntOTmhzhQ~~/AAQRxRA~/iCFrGW1K7_3zCOLCKDrnxjnkjpBikdRpu0IFH1ESjJY9_vS4ZegjtgDgobSVtajVKxct8mxGqmk_njeSNbOCYMDOLNTQgWdcvforGeF85lzt8QLSFL5KUi6NAJzPVgqwzs4yoKGFyIKqgQYrRjC28W-YnPbd6_U0_SGCdmid0X1GufZQl_lK8jxjO0C7XViMws9Bs-H5JqqKOgI_mMGuNA~~"
     }
-  ].sort((a, b) => parseInt(a.id.slice(2)) - parseInt(b.id.slice(2)));
+  ].sort((a, b) => (parseEntryDate(a.date) || 0) - (parseEntryDate(b.date) || 0));
 
   const listEl = document.getElementById("list");
   const statRow = document.getElementById("statRow");
@@ -1042,7 +1042,9 @@
     return { weeks: sorted, noDate };
   }
 
-  const byQuoteNumber = (a, b) => parseInt(a.id.slice(2)) - parseInt(b.id.slice(2));
+  // Sorts oldest-first by date, not by id — some entries (go-ahead without a
+  // quote number) don't have a "QT#####" id to parse.
+  const byQuoteNumber = (a, b) => (parseEntryDate(a.date) || 0) - (parseEntryDate(b.date) || 0);
 
   function appendCards(items) {
     items.slice().sort(byQuoteNumber).forEach(q => listEl.appendChild(buildCard(q)));

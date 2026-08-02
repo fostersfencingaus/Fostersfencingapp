@@ -208,9 +208,33 @@
     padding: 12px 16px;
     font-size: 13.5px;
     color: var(--ink);
-    margin-bottom: 30px;
+    margin-bottom: 20px;
   }
   .banner strong { color: var(--accent); }
+
+  .view-toggle {
+    display: inline-flex;
+    border: 1px solid var(--line);
+    border-radius: 100px;
+    padding: 3px;
+    margin-bottom: 26px;
+    background: var(--paper-raised);
+  }
+  .view-toggle button {
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    border: 0;
+    background: transparent;
+    color: var(--ink-soft);
+    padding: 7px 16px;
+    border-radius: 100px;
+    cursor: pointer;
+  }
+  .view-toggle button.active {
+    background: var(--accent);
+    color: var(--paper-raised);
+  }
 
   section.suburb-group {
     margin-bottom: 28px;
@@ -375,10 +399,15 @@
   <strong>Real, live enquiries.</strong> The 204 enquiries below are pulled from your inbox 12&nbsp;Jul–2&nbsp;Aug&nbsp;2026 — cloudmail contact-form submissions, 46 hipages lead invitations, and three service.com.au job postings (marked below; hipages leads don't include contact details until accepted, and the account currently shows 0 lead credits). See <code>docs/email-parsing-rules.md</code> for how enquiries are detected.
 </div>
 
+<div class="view-toggle" id="viewToggle" role="tablist">
+  <button type="button" role="tab" aria-selected="true" data-mode="suburb" class="active">By suburb</button>
+  <button type="button" role="tab" aria-selected="false" data-mode="date">By date</button>
+</div>
+
 <div id="current"></div>
 
 <footer class="page">
-  Suburbs are sorted A–Z.
+  Suburbs are sorted A–Z (By suburb) or newest first (By date).
 </footer>
 
 </div>
@@ -2171,15 +2200,44 @@
         return;
       }
       const { name, postcode, region } = normalizeSuburb(item.raw);
-      const enriched = { ...item, postcode, region };
+      const enriched = { ...item, suburbName: name, postcode, region };
       if (!groups[name]) groups[name] = [];
       groups[name].push(enriched);
     });
-    const clean = Object.keys(groups).sort().map(suburb => ({ suburb, items: groups[suburb] }));
+    const clean = Object.keys(groups).sort().map(suburb => ({ heading: suburb, items: groups[suburb] }));
     if (needsReview.length) {
-      clean.push({ suburb: "Needs suburb confirmation", items: needsReview, review: true });
+      clean.push({ heading: "Needs suburb confirmation", items: needsReview });
     }
     return clean;
+  }
+
+  // Same entries, bucketed by the exact day they came in (newest day
+  // first) instead of by suburb — so you can scan straight down a
+  // Friday, say, and see everything that landed that day regardless of
+  // suburb.
+  function groupByDate(list) {
+    const weekdayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const groups = {};
+    list.forEach(item => {
+      let enriched = item;
+      if (!item.unclear) {
+        const { name, postcode, region } = normalizeSuburb(item.raw);
+        enriched = { ...item, suburbName: name, postcode, region };
+      }
+      const key = item.date || "Date unclear";
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(enriched);
+    });
+    return Object.keys(groups)
+      .map(date => {
+        const parsed = parseEntryDate(date);
+        return {
+          heading: parsed ? `${weekdayNames[parsed.getUTCDay()]} ${date}` : date,
+          items: groups[date],
+          sortKey: parsed
+        };
+      })
+      .sort((a, b) => (b.sortKey || 0) - (a.sortKey || 0));
   }
 
   // Builds clickable tel:/sms:/mailto: links for a card's contact line.
@@ -2195,25 +2253,38 @@
     return parts.join(' <span class="sep">·</span> ');
   }
 
+  // In the "by date" view, groups are days rather than suburbs, so each
+  // card needs to say which suburb it's for — prepended to the meta line.
+  function metaLine(item, showSuburb) {
+    const suburbPart = showSuburb
+      ? (item.unclear ? "Suburb unclear — " : `${item.suburbName}${item.postcode ? " " + item.postcode : ""} — `)
+      : "";
+    const postcodePart = !showSuburb && item.postcode ? " — WA " + item.postcode : "";
+    const regionPart = item.region ? " (" + item.region + ")" : "";
+    return `${suburbPart}${item.source}${postcodePart}${regionPart} — ${item.date}`;
+  }
+
   // Renders the current-week/older-week buckets into an HTML string so it
-  // can be combined with the week heading/details markup.
-  function groupsToHtml(groups) {
+  // can be combined with the week heading/details markup. `showSuburb`
+  // is set for the "by date" view, where the group heading is a day
+  // rather than a suburb name.
+  function groupsToHtml(groups, showSuburb) {
     return groups.map(g => `
       <section class="suburb-group">
-        <h2 class="suburb-name">${g.suburb} <span class="count">${g.items.length} ${g.items.length === 1 ? "enquiry" : "enquiries"}</span></h2>
+        <h2 class="suburb-name">${g.heading} <span class="count">${g.items.length} ${g.items.length === 1 ? "enquiry" : "enquiries"}</span></h2>
         <div class="list">
           ${g.items.map(item => `
             <div class="card">
               <div class="card-top">
                 <span class="who">${item.who}</span>
                 <div class="badges">
-                  ${g.review ? '<span class="badge review">Check suburb</span>' : '<span class="badge fresh">New</span>'}
+                  ${item.unclear ? '<span class="badge review">Check suburb</span>' : '<span class="badge fresh">New</span>'}
                 </div>
               </div>
               <div class="job">${item.job}</div>
               ${item.email || item.phone ? `<div class="contact">${contactLinks(item)}</div>` : ""}
-              ${g.review ? `<div class="meta">Source text: "${item.raw}"</div>` : ""}
-              <div class="meta">${item.source}${item.postcode ? " — WA " + item.postcode : ""}${item.region ? " (" + item.region + ")" : ""} — ${item.date}</div>
+              ${item.unclear ? `<div class="meta">Source text: "${item.raw}"</div>` : ""}
+              <div class="meta">${metaLine(item, showSuburb)}</div>
             </div>
           `).join("")}
         </div>
@@ -2273,7 +2344,7 @@
   // week (no new entries yet) would wrongly keep last week's entries
   // labelled "This week" and unfolded instead of rolling them into a
   // collapsed section like every other past week.
-  function renderCurrentByWeek(containerId, list) {
+  function renderCurrentByWeek(containerId, list, mode) {
     const el = document.getElementById(containerId);
     const weeks = groupByWeek(list);
     const now = new Date();
@@ -2283,21 +2354,37 @@
     const thisWeekItems = hasThisWeekData ? weeks[0].items : [];
     const olderWeeks = hasThisWeekData ? weeks.slice(1) : weeks;
 
+    const showSuburb = mode === "date";
+    const groupFn = showSuburb ? groupByDate : groupBySuburb;
+
     const heading = `<div class="thisweek-heading">This week · ${thisWeekInfo.label.replace("Week of ", "")}</div>`;
     const body = thisWeekItems.length
-      ? groupsToHtml(groupBySuburb(thisWeekItems))
+      ? groupsToHtml(groupFn(thisWeekItems), showSuburb)
       : `<p class="meta" style="margin: 0 0 20px;">No new enquiries yet this week.</p>`;
     const olderHtml = olderWeeks.map(w => `
       <details class="week">
         <summary>${w.label} <span class="n">· ${w.items.length} ${w.items.length === 1 ? "enquiry" : "enquiries"}</span></summary>
-        <div class="week-body">${groupsToHtml(groupBySuburb(w.items))}</div>
+        <div class="week-body">${groupsToHtml(groupFn(w.items), showSuburb)}</div>
       </details>
     `).join("");
 
     el.innerHTML = heading + body + olderHtml;
   }
 
-  renderCurrentByWeek("current", current);
+  let viewMode = "suburb";
+  renderCurrentByWeek("current", current, viewMode);
+
+  document.getElementById("viewToggle").addEventListener("click", e => {
+    const btn = e.target.closest("button[data-mode]");
+    if (!btn || btn.classList.contains("active")) return;
+    viewMode = btn.dataset.mode;
+    document.querySelectorAll("#viewToggle button").forEach(b => {
+      const isActive = b === btn;
+      b.classList.toggle("active", isActive);
+      b.setAttribute("aria-selected", isActive ? "true" : "false");
+    });
+    renderCurrentByWeek("current", current, viewMode);
+  });
 
   const currentSuburbs = new Set(current.filter(c => !c.unclear).map(c => normalizeSuburb(c.raw).name));
   document.getElementById("statRow").innerHTML = `

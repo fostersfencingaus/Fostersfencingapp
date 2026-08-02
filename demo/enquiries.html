@@ -274,6 +274,20 @@
     font-size: 13px;
     color: var(--ink-soft);
     font-family: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 10px;
+  }
+  .contact a {
+    color: var(--accent);
+    text-decoration: none;
+  }
+  .contact a:hover,
+  .contact a:focus-visible {
+    text-decoration: underline;
+  }
+  .contact .sep {
+    color: var(--line);
   }
   .job {
     font-size: 14px;
@@ -2195,6 +2209,19 @@
     return clean;
   }
 
+  // Builds clickable tel:/sms:/mailto: links for a card's contact line.
+  function contactLinks(item) {
+    const parts = [];
+    if (item.phone) {
+      const digits = item.phone.replace(/[^\d+]/g, "");
+      parts.push(`<a href="tel:${digits}">${item.phone}</a>`, `<a href="sms:${digits}">SMS</a>`);
+    }
+    if (item.email) {
+      parts.push(`<a href="mailto:${item.email}">${item.email}</a>`);
+    }
+    return parts.join(' <span class="sep">·</span> ');
+  }
+
   // Shared by the "archived" list (rendered straight into a container) and
   // the current-week/older-week buckets (rendered into an HTML string first
   // so it can be combined with the week heading/details markup).
@@ -2212,7 +2239,7 @@
                 </div>
               </div>
               <div class="job">${item.job}</div>
-              ${item.email || item.phone ? `<div class="contact">${[item.phone, item.email].filter(Boolean).join(" · ")}</div>` : ""}
+              ${item.email || item.phone ? `<div class="contact">${contactLinks(item)}</div>` : ""}
               ${g.review ? `<div class="meta">Source text: "${item.raw}"</div>` : ""}
               <div class="meta">${item.source}${item.postcode ? " — WA " + item.postcode : ""}${item.region ? " (" + item.region + ")" : ""} — ${item.date}</div>
             </div>

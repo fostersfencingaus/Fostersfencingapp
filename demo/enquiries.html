@@ -244,8 +244,6 @@
     display: grid;
     gap: 6px;
   }
-  .card.is-archived { opacity: 0.78; }
-
   .card-top {
     display: flex;
     align-items: baseline;
@@ -267,7 +265,6 @@
     white-space: nowrap;
   }
   .badge.fresh { background: var(--good-soft); color: var(--good); }
-  .badge.archived { background: var(--line); color: var(--ink-soft); }
   .badge.review { background: var(--gold-soft); color: var(--wait); }
 
   .contact {
@@ -296,16 +293,6 @@
   .meta {
     font-size: 12px;
     color: var(--steel);
-  }
-
-  h2.archive-heading {
-    font-size: 14px;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--steel);
-    border-top: 1px dashed var(--line);
-    padding-top: 22px;
-    margin: 8px 0 18px;
   }
 
   .thisweek-heading {
@@ -385,16 +372,13 @@
 <div class="stat-row" id="statRow"></div>
 
 <div class="banner">
-  <strong>Real vs. archived.</strong> The 204 enquiries below are live, pulled from your inbox 12&nbsp;Jul–2&nbsp;Aug&nbsp;2026 — cloudmail contact-form submissions, 46 hipages lead invitations, and three service.com.au job postings (marked below; hipages leads don't include contact details until accepted, and the account currently shows 0 lead credits). Everything under "Archived" is genuine enquiry history from 2013–2014 found in the same mailbox — years old, kept for reference only, not something to action. See <code>docs/email-parsing-rules.md</code> for how enquiries are detected.
+  <strong>Real, live enquiries.</strong> The 204 enquiries below are pulled from your inbox 12&nbsp;Jul–2&nbsp;Aug&nbsp;2026 — cloudmail contact-form submissions, 46 hipages lead invitations, and three service.com.au job postings (marked below; hipages leads don't include contact details until accepted, and the account currently shows 0 lead credits). See <code>docs/email-parsing-rules.md</code> for how enquiries are detected.
 </div>
 
 <div id="current"></div>
 
-<h2 class="archive-heading">Archived enquiries · 2013–2014</h2>
-<div id="archived"></div>
-
 <footer class="page">
-  Suburbs are sorted A–Z. "Fresh" enquiries are the ones worth following up; archived ones are shown only so nothing gets lost.
+  Suburbs are sorted A–Z.
 </footer>
 
 </div>
@@ -2154,21 +2138,6 @@
     }
   ];
 
-  const archived = [
-    { who: "Rue", raw: "Banksia Grove 6031", job: "Fence/wall services", source: "homeimprovementpages.com.au direct enquiry", date: "27 May 2014" },
-    { who: "Alberto", raw: "Coogee 6166", job: "Fencing services", source: "homeimprovementpages.com.au direct enquiry", date: "4 May 2014" },
-    { who: "Kannie", raw: "Balga 6061", job: "Gates, supply & install", source: "homeimprovementpages.com.au direct enquiry", date: "30 Mar 2014" },
-    { who: "Kenneth", raw: "Kingsley 6026", job: "Gates services", source: "homeimprovementpages.com.au direct enquiry", date: "10 Mar 2014" },
-    { who: "Gemma", raw: "Warwick 6024", job: "Side gates services", source: "homeimprovementpages.com.au direct enquiry", date: "7 Mar 2014" },
-    { who: "Dennis", raw: "Mirrabooka 6061", job: "Fencing services", source: "homeimprovementpages.com.au direct enquiry", date: "28 Oct 2013" },
-    { who: "Christine", raw: "Westminster 6061", job: "Fencing / quotation services", source: "homeimprovementpages.com.au direct enquiry", date: "24 Sep 2013" },
-    { who: "Ken Suprana", raw: "Harrisdale 6112", job: "Aluminium slat gate, supply & install incl. latches", source: "Direct email enquiry", date: "18 Feb 2014" },
-    { who: "N. Hofstee", raw: "Aveley", job: "2x aluminium slat gates, measure & quote", source: "Direct email enquiry", date: "6 Mar 2014" },
-    { who: "ckmasuku", raw: "Landsdale", job: "Boundary fencing, Stockland Corimbia estate", source: "Direct email enquiry", date: "6 Feb 2014" },
-    { who: "ajcjnapier", raw: "Success, Cockburn", job: "Pool fencing ahead of pool install", source: "Direct email enquiry", date: "17 Sep 2013" },
-    { who: "Amanda", raw: "our home in North...", job: "Picket fence, supply & install", source: "Direct email enquiry (message cut off mid-word in the source)", date: "30 Jan 2014", unclear: true }
-  ];
-
   // Cleans up free-typed locations: strips a trailing WA postcode into its
   // own field, drops stray commas, and title-cases the rest — so "GREENWOOD"
   // and a future "Greenwood 6024" would group under the same heading instead
@@ -2226,20 +2195,19 @@
     return parts.join(' <span class="sep">·</span> ');
   }
 
-  // Shared by the "archived" list (rendered straight into a container) and
-  // the current-week/older-week buckets (rendered into an HTML string first
-  // so it can be combined with the week heading/details markup).
-  function groupsToHtml(groups, archived) {
+  // Renders the current-week/older-week buckets into an HTML string so it
+  // can be combined with the week heading/details markup.
+  function groupsToHtml(groups) {
     return groups.map(g => `
       <section class="suburb-group">
         <h2 class="suburb-name">${g.suburb} <span class="count">${g.items.length} ${g.items.length === 1 ? "enquiry" : "enquiries"}</span></h2>
         <div class="list">
           ${g.items.map(item => `
-            <div class="card${archived ? " is-archived" : ""}">
+            <div class="card">
               <div class="card-top">
                 <span class="who">${item.who}</span>
                 <div class="badges">
-                  ${g.review ? '<span class="badge review">Check suburb</span>' : `<span class="badge ${archived ? "archived" : "fresh"}">${archived ? "Archived" : "New"}</span>`}
+                  ${g.review ? '<span class="badge review">Check suburb</span>' : '<span class="badge fresh">New</span>'}
                 </div>
               </div>
               <div class="job">${item.job}</div>
@@ -2251,10 +2219,6 @@
         </div>
       </section>
     `).join("");
-  }
-
-  function renderGroups(containerId, groups, archived) {
-    document.getElementById(containerId).innerHTML = groupsToHtml(groups, archived);
   }
 
   // Turns a free-typed "18 Jul 2026" style date into a real Date object so
@@ -2334,13 +2298,11 @@
   }
 
   renderCurrentByWeek("current", current);
-  renderGroups("archived", groupBySuburb(archived), true);
 
   const currentSuburbs = new Set(current.filter(c => !c.unclear).map(c => normalizeSuburb(c.raw).name));
   document.getElementById("statRow").innerHTML = `
     <div class="stat"><span class="n">${current.length}</span><span class="label">Fresh enquiries</span></div>
     <div class="stat"><span class="n">${currentSuburbs.size}</span><span class="label">Active suburbs</span></div>
-    <div class="stat"><span class="n">${archived.length}</span><span class="label">Archived (2013–2014)</span></div>
   `;
 </script>
 

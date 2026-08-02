@@ -2264,6 +2264,17 @@
     return `${suburbPart}${item.source}${postcodePart}${regionPart} — ${item.date}`;
   }
 
+  // This week's Saturday, minus a day — i.e. the Friday that closed out
+  // the previous Sat–Fri week. Anything from that day onward still
+  // counts as "new"; anything before it doesn't.
+  function newCutoffDate() {
+    const now = new Date();
+    const todayUtc = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+    const cutoff = new Date(weekInfoFor(todayUtc).monday);
+    cutoff.setUTCDate(cutoff.getUTCDate() - 1);
+    return cutoff;
+  }
+
   // "New" means this week, plus the Friday right before it — the last
   // day of the previous Sat–Fri week, which is still only a day or two
   // old and easy to still be sitting on. Everything else in a previous
@@ -2367,8 +2378,7 @@
 
     const showSuburb = mode === "date";
     const groupFn = showSuburb ? groupByDate : groupBySuburb;
-    const newCutoff = new Date(thisWeekInfo.monday);
-    newCutoff.setUTCDate(newCutoff.getUTCDate() - 1);
+    const newCutoff = newCutoffDate();
 
     const heading = `<div class="thisweek-heading">This week · ${thisWeekInfo.label.replace("Week of ", "")}</div>`;
     const body = thisWeekItems.length
@@ -2400,8 +2410,10 @@
   });
 
   const currentSuburbs = new Set(current.filter(c => !c.unclear).map(c => normalizeSuburb(c.raw).name));
+  const freshCount = current.filter(c => !c.unclear && isNew(c, newCutoffDate())).length;
   document.getElementById("statRow").innerHTML = `
-    <div class="stat"><span class="n">${current.length}</span><span class="label">Fresh enquiries</span></div>
+    <div class="stat"><span class="n">${freshCount}</span><span class="label">Fresh enquiries</span></div>
+    <div class="stat"><span class="n">${current.length}</span><span class="label">Total enquiries</span></div>
     <div class="stat"><span class="n">${currentSuburbs.size}</span><span class="label">Active suburbs</span></div>
   `;
 </script>

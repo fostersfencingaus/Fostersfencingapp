@@ -2264,11 +2264,20 @@
     return `${suburbPart}${item.source}${postcodePart}${regionPart} — ${item.date}`;
   }
 
+  // "New" means this week, plus the Friday right before it — the last
+  // day of the previous Sat–Fri week, which is still only a day or two
+  // old and easy to still be sitting on. Everything else in a previous
+  // week (Sat–Thu of that week) is no longer "new".
+  function isNew(item, newCutoff) {
+    const parsed = parseEntryDate(item.date);
+    return !parsed || parsed >= newCutoff;
+  }
+
   // Renders the current-week/older-week buckets into an HTML string so it
   // can be combined with the week heading/details markup. `showSuburb`
   // is set for the "by date" view, where the group heading is a day
   // rather than a suburb name.
-  function groupsToHtml(groups, showSuburb) {
+  function groupsToHtml(groups, showSuburb, newCutoff) {
     return groups.map(g => `
       <section class="suburb-group">
         <h2 class="suburb-name">${g.heading} <span class="count">${g.items.length} ${g.items.length === 1 ? "enquiry" : "enquiries"}</span></h2>
@@ -2278,7 +2287,9 @@
               <div class="card-top">
                 <span class="who">${item.who}</span>
                 <div class="badges">
-                  ${item.unclear ? '<span class="badge review">Check suburb</span>' : '<span class="badge fresh">New</span>'}
+                  ${item.unclear
+                    ? '<span class="badge review">Check suburb</span>'
+                    : (isNew(item, newCutoff) ? '<span class="badge fresh">New</span>' : "")}
                 </div>
               </div>
               <div class="job">${item.job}</div>
@@ -2356,15 +2367,17 @@
 
     const showSuburb = mode === "date";
     const groupFn = showSuburb ? groupByDate : groupBySuburb;
+    const newCutoff = new Date(thisWeekInfo.monday);
+    newCutoff.setUTCDate(newCutoff.getUTCDate() - 1);
 
     const heading = `<div class="thisweek-heading">This week · ${thisWeekInfo.label.replace("Week of ", "")}</div>`;
     const body = thisWeekItems.length
-      ? groupsToHtml(groupFn(thisWeekItems), showSuburb)
+      ? groupsToHtml(groupFn(thisWeekItems), showSuburb, newCutoff)
       : `<p class="meta" style="margin: 0 0 20px;">No new enquiries yet this week.</p>`;
     const olderHtml = olderWeeks.map(w => `
       <details class="week">
         <summary>${w.label} <span class="n">· ${w.items.length} ${w.items.length === 1 ? "enquiry" : "enquiries"}</span></summary>
-        <div class="week-body">${groupsToHtml(groupFn(w.items), showSuburb)}</div>
+        <div class="week-body">${groupsToHtml(groupFn(w.items), showSuburb, newCutoff)}</div>
       </details>
     `).join("");
 

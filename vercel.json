@@ -1,0 +1,11 @@
+{
+  "rewrites": [
+    { "source": "/", "destination": "/demo/index.html" },
+    { "source": "/index.html", "destination": "/demo/index.html" },
+    { "source": "/quote-scheduler.html", "destination": "/demo/quote-scheduler.html" },
+    { "source": "/enquiries.html", "destination": "/demo/enquiries.html" },
+    { "source": "/manifest.json", "destination": "/demo/manifest.json" },
+    { "source": "/sw.js", "destination": "/demo/sw.js" },
+    { "source": "/assets/:path*", "destination": "/demo/assets/:path*" }
+  ]
+}

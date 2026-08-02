@@ -4,6 +4,12 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>New Enquiries — Fosters Fencing</title>
+<link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#163b6b" />
+<link rel="apple-touch-icon" href="assets/icons/icon-192.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Fosters Fencing" />
 <style>
   :root {
     --ink: #142235;
@@ -411,6 +417,7 @@
 <div class="page-pad">
 
 <nav class="tabnav">
+  <a href="index.html">Home</a>
   <a href="quote-scheduler.html">Approved Jobs</a>
   <a href="enquiries.html" class="active">New Enquiries</a>
 </nav>
@@ -2502,6 +2509,12 @@
     <div class="stat"><span class="n">${current.length}</span><span class="label">Total enquiries</span></div>
     <div class="stat"><span class="n">${currentSuburbs.size}</span><span class="label">Active suburbs</span></div>
   `;
+
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("sw.js").catch(() => {});
+    });
+  }
 </script>
 
 </body>

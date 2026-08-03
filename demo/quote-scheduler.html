@@ -187,6 +187,23 @@
     gap: 10px;
     margin: 20px 0 26px;
   }
+  .search-row { margin: -8px 0 18px; }
+  .search-input {
+    width: 100%;
+    box-sizing: border-box;
+    font: inherit;
+    font-size: 15px;
+    color: var(--ink);
+    background: var(--paper-raised);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 10px 14px;
+  }
+  .search-input:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 1px;
+  }
+  .search-input::placeholder { color: var(--steel); }
   .stat {
     background: var(--paper-raised);
     border: 1px solid var(--line);
@@ -565,6 +582,10 @@
 </header>
 
 <div class="stat-row" id="statRow"></div>
+
+<div class="search-row">
+  <input type="search" id="searchInput" class="search-input" placeholder="Search by quote number or name…" />
+</div>
 
 <div class="legend" id="teamLegend"></div>
 
@@ -1447,11 +1468,20 @@
   // quote number) don't have a "QT#####" id to parse.
   const byQuoteNumber = (a, b) => (parseEntryDate(a.date) || 0) - (parseEntryDate(b.date) || 0);
 
-  function appendCards(items) {
-    items.slice().sort(byQuoteNumber).forEach(q => listEl.appendChild(buildCard(q)));
+  function appendCards(items, container) {
+    items.slice().sort(byQuoteNumber).forEach(q => (container || listEl).appendChild(buildCard(q)));
   }
 
   const groupToggle = document.getElementById("groupUnbookedToggle");
+  const searchInput = document.getElementById("searchInput");
+  let searchQuery = "";
+
+  // Matches the search box against quote number or client name.
+  function matchesSearch(quote, query) {
+    const q = query.toLowerCase();
+    return (quote.id && quote.id.toLowerCase().includes(q)) ||
+           (quote.who && quote.who.toLowerCase().includes(q));
+  }
 
   // "This week" is anchored to today's actual Sat–Fri window, not just
   // whichever week happens to be newest in the data — otherwise a quiet
@@ -1466,9 +1496,21 @@
   function renderList() {
     listEl.innerHTML = "";
 
+    const source = searchQuery ? quotes.filter(q => matchesSearch(q, searchQuery)) : quotes;
+
+    if (searchQuery && source.length === 0) {
+      const empty = document.createElement("p");
+      empty.className = "meta";
+      empty.style.margin = "20px 0";
+      empty.textContent = `No jobs match "${searchQuery}".`;
+      listEl.appendChild(empty);
+      applyClaimsToCards();
+      return;
+    }
+
     const grouping = groupToggle.checked;
-    const unbooked = quotes.filter(q => !q.bookedDate);
-    const weeklyItems = grouping ? quotes.filter(q => q.bookedDate) : quotes;
+    const unbooked = source.filter(q => !q.bookedDate);
+    const weeklyItems = grouping ? source.filter(q => q.bookedDate) : source;
 
     if (grouping && unbooked.length > 0) {
       const awaitingHeading = document.createElement("div");
@@ -1486,19 +1528,28 @@
     const thisWeekItems = hasThisWeekData ? weeks[0].items : [];
     const olderWeeks = hasThisWeekData ? weeks.slice(1) : weeks;
 
-    const heading = document.createElement("div");
-    heading.className = "thisweek-heading";
-    heading.textContent = `This week · ${thisWeekInfo.label.replace("Week of ", "")}`;
-    listEl.appendChild(heading);
+    // "This week" is collapsible just like older weeks, just open by
+    // default — click the summary to fold it away like any other week.
+    const thisWeekAll = [...thisWeekItems, ...noDate];
+    const thisWeekDetails = document.createElement("details");
+    thisWeekDetails.className = "week";
+    thisWeekDetails.open = true;
+    const thisWeekSummary = document.createElement("summary");
+    thisWeekSummary.innerHTML = `This week · ${thisWeekInfo.label.replace("Week of ", "")} <span class="n">· ${thisWeekAll.length} ${thisWeekAll.length === 1 ? "quote" : "quotes"}</span>`;
+    thisWeekDetails.appendChild(thisWeekSummary);
+    const thisWeekBody = document.createElement("div");
+    thisWeekBody.className = "week-body";
+    thisWeekDetails.appendChild(thisWeekBody);
+    listEl.appendChild(thisWeekDetails);
 
-    if (thisWeekItems.length === 0 && noDate.length === 0) {
+    if (thisWeekAll.length === 0) {
       const empty = document.createElement("p");
       empty.className = "meta";
-      empty.style.margin = "0 0 20px";
+      empty.style.margin = "0";
       empty.textContent = grouping ? "No newly-booked jobs this week." : "No new approvals yet this week.";
-      listEl.appendChild(empty);
+      thisWeekBody.appendChild(empty);
     } else {
-      appendCards([...thisWeekItems, ...noDate]);
+      appendCards(thisWeekAll, thisWeekBody);
     }
 
     olderWeeks.forEach(w => {
@@ -1518,6 +1569,10 @@
 
   renderList();
   groupToggle.addEventListener("change", renderList);
+  searchInput.addEventListener("input", () => {
+    searchQuery = searchInput.value.trim();
+    renderList();
+  });
 
   fetchClaims();
   setInterval(fetchClaims, CLAIMS_POLL_MS);

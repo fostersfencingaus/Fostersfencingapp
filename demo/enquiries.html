@@ -384,14 +384,6 @@
     color: var(--good);
   }
 
-  .thisweek-heading {
-    font-size: 13px;
-    font-weight: 700;
-    color: var(--accent);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    margin: 0 0 14px;
-  }
   details.week {
     border-top: 1px dashed var(--line);
     padding-top: 16px;
@@ -2626,10 +2618,17 @@
     const groupFn = list => (showSuburb ? groupByDate(list, primaryFirst) : groupBySuburb(list, primaryFirst));
     const newCutoff = newCutoffDate();
 
-    const heading = `<div class="thisweek-heading">This week · ${thisWeekInfo.label.replace("Week of ", "")}</div>`;
-    const body = thisWeekItems.length
+    // "This week" is collapsible just like older weeks, just open by
+    // default — click the summary to fold it away like any other week.
+    const thisWeekBody = thisWeekItems.length
       ? groupsToHtml(groupFn(thisWeekItems), showSuburb, newCutoff)
-      : `<p class="meta" style="margin: 0 0 20px;">No new enquiries yet this week.</p>`;
+      : `<p class="meta" style="margin: 0;">No new enquiries yet this week.</p>`;
+    const heading = `
+      <details class="week" open>
+        <summary>This week · ${thisWeekInfo.label.replace("Week of ", "")} <span class="n">· ${thisWeekItems.length} ${thisWeekItems.length === 1 ? "enquiry" : "enquiries"}</span></summary>
+        <div class="week-body">${thisWeekBody}</div>
+      </details>
+    `;
     const olderHtml = olderWeeks.map(w => `
       <details class="week">
         <summary>${w.label} <span class="n">· ${w.items.length} ${w.items.length === 1 ? "enquiry" : "enquiries"}</span></summary>
@@ -2637,7 +2636,7 @@
       </details>
     `).join("");
 
-    el.innerHTML = heading + body + olderHtml;
+    el.innerHTML = heading + olderHtml;
     wireClaimInputs();
   }
 

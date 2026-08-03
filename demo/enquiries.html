@@ -207,6 +207,24 @@
     letter-spacing: 0.04em;
   }
 
+  .search-row { margin-bottom: 16px; }
+  .search-input {
+    width: 100%;
+    box-sizing: border-box;
+    font: inherit;
+    font-size: 15px;
+    color: var(--ink);
+    background: var(--paper-raised);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 10px 14px;
+  }
+  .search-input:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 1px;
+  }
+  .search-input::placeholder { color: var(--steel); }
+
   .toolbar {
     display: flex;
     align-items: center;
@@ -442,6 +460,10 @@
 </header>
 
 <div class="stat-row" id="statRow"></div>
+
+<div class="search-row">
+  <input type="search" id="searchInput" class="search-input" placeholder="Search by name or suburb…" />
+</div>
 
 <div class="toolbar">
   <div class="view-toggle" id="viewToggle" role="tablist">
@@ -2619,9 +2641,37 @@
     wireClaimInputs();
   }
 
+  function escapeAttr(str) {
+    return String(str)
+      .replace(/&/g, "&amp;")
+      .replace(/"/g, "&quot;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+  }
+
+  // Matches the search box against name or suburb (the raw, pre-normalized
+  // location text, so "Success, Cockburn" still matches typing "Cockburn").
+  function matchesSearch(item, query) {
+    const q = query.toLowerCase();
+    return (item.who && item.who.toLowerCase().includes(q)) ||
+           (item.raw && item.raw.toLowerCase().includes(q));
+  }
+
   let viewMode = "suburb";
   let primaryFirst = false;
-  renderCurrentByWeek("current", current, viewMode, primaryFirst);
+  let searchQuery = "";
+
+  function rerender() {
+    const list = searchQuery ? current.filter(item => matchesSearch(item, searchQuery)) : current;
+    if (searchQuery && list.length === 0) {
+      document.getElementById("current").innerHTML =
+        `<p class="meta" style="margin: 20px 0;">No enquiries match "${escapeAttr(searchQuery)}".</p>`;
+      return;
+    }
+    renderCurrentByWeek("current", list, viewMode, primaryFirst);
+  }
+
+  rerender();
 
   fetchClaims();
   setInterval(fetchClaims, CLAIMS_POLL_MS);
@@ -2635,12 +2685,17 @@
       b.classList.toggle("active", isActive);
       b.setAttribute("aria-selected", isActive ? "true" : "false");
     });
-    renderCurrentByWeek("current", current, viewMode, primaryFirst);
+    rerender();
   });
 
   document.getElementById("primaryFirstToggle").addEventListener("change", e => {
     primaryFirst = e.target.checked;
-    renderCurrentByWeek("current", current, viewMode, primaryFirst);
+    rerender();
+  });
+
+  document.getElementById("searchInput").addEventListener("input", e => {
+    searchQuery = e.target.value.trim();
+    rerender();
   });
 
   const currentSuburbs = new Set(current.filter(c => !c.unclear).map(c => normalizeSuburb(c.raw).name));

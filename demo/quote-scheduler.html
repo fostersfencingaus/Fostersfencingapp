@@ -618,7 +618,7 @@
   // instant push). See docs/claims-setup.md for the one-time KV setup.
   const CLAIMS_ENDPOINT = "/api/claims";
   const CLAIMS_LIST = "quotes";
-  const CLAIMS_POLL_MS = 6000;
+  const CLAIMS_POLL_MS = 15000;
   let claimsState = {};
 
   async function fetchClaims() {
@@ -672,6 +672,44 @@
       if (davidInput.checked) timInput.checked = false;
       setClaim(key, davidInput.checked ? "david" : null);
     });
+  }
+
+  // Screenshot-read overrides (who/location/note) — shared across devices
+  // via api/overrides.js + the same Vercel KV database as claims, so
+  // applying a screenshot read on one device updates the card the same
+  // way everywhere. Only the extracted text syncs, not the screenshot
+  // image itself (that stays local to whichever device uploaded it).
+  const OVERRIDES_ENDPOINT = "/api/overrides";
+  const OVERRIDES_POLL_MS = 15000;
+  let overridesState = {};
+  // Each card registers its own renderDetail() here so a poll tick can
+  // refresh just the detail line, not rebuild the whole list (which would
+  // reset scroll position, open/closed weeks, and in-progress date picks).
+  const detailRenderers = {};
+
+  async function fetchOverrides() {
+    try {
+      const res = await fetch(OVERRIDES_ENDPOINT);
+      if (!res.ok) return;
+      const data = await res.json();
+      overridesState = data.overrides || {};
+      Object.values(detailRenderers).forEach(render => render());
+    } catch (err) {}
+  }
+
+  async function setOverrideRemote(id, override) {
+    try {
+      const res = await fetch(OVERRIDES_ENDPOINT, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: id, override })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        overridesState = data.overrides || overridesState;
+      }
+    } catch (err) {}
+    if (detailRenderers[id]) detailRenderers[id]();
   }
 
   // Matched to each quote's colorId from its booking calendar event —
@@ -1147,24 +1185,6 @@
       .replace(/>/g, "&gt;");
   }
 
-  // Screenshot auto-read (when OCR_ENDPOINT is set) writes here instead of
-  // touching the quote data itself, so an extraction can always be
-  // reverted back to the original Invoice2go/email text.
-  function getOverride(id) {
-    try {
-      const raw = localStorage.getItem("ff-quote-override-" + id);
-      return raw ? JSON.parse(raw) : null;
-    } catch (err) {
-      return null;
-    }
-  }
-  function setOverride(id, override) {
-    try { localStorage.setItem("ff-quote-override-" + id, JSON.stringify(override)); } catch (err) {}
-  }
-  function clearOverride(id) {
-    try { localStorage.removeItem("ff-quote-override-" + id); } catch (err) {}
-  }
-
   function buildCard(quote) {
     const card = document.createElement("div");
     card.className = "card" + (quote.example ? " is-example" : "");
@@ -1235,7 +1255,7 @@
     // quote data, or from a saved screenshot-extraction override if one
     // exists for this quote.
     function renderDetail() {
-      const override = getOverride(quote.id);
+      const override = overridesState[quote.id];
       const display = override ? { ...quote, ...override } : quote;
       detailEl.innerHTML = `
         <span class="who">${whoMarkup(display.who)}</span> — ${display.note}
@@ -1246,11 +1266,11 @@
       const revertBtn = detailEl.querySelector('[data-role="ocr-revert"]');
       if (revertBtn) {
         revertBtn.addEventListener("click", () => {
-          clearOverride(quote.id);
-          renderDetail();
+          setOverrideRemote(quote.id, null);
         });
       }
     }
+    detailRenderers[quote.id] = renderDetail;
     renderDetail();
 
     function refreshState() {
@@ -1333,13 +1353,12 @@
         `;
         ocrStatus.insertAdjacentElement("afterend", review);
         review.querySelector(".ocr-apply").addEventListener("click", () => {
-          setOverride(quote.id, {
+          setOverrideRemote(quote.id, {
             who: review.querySelector('[data-role="ocr-who"]').value.trim() || quote.who,
             location: review.querySelector('[data-role="ocr-location"]').value.trim(),
             note: review.querySelector('[data-role="ocr-note"]').value.trim() || quote.note
           });
           review.remove();
-          renderDetail();
         });
         review.querySelector(".ocr-discard").addEventListener("click", () => review.remove());
       }
@@ -1576,6 +1595,9 @@
 
   fetchClaims();
   setInterval(fetchClaims, CLAIMS_POLL_MS);
+
+  fetchOverrides();
+  setInterval(fetchOverrides, OVERRIDES_POLL_MS);
 
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {

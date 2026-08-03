@@ -11,6 +11,8 @@ Both are static, single-file HTML — no build step, open directly in a browser.
 
 Both use hardcoded data kept up to date by hand from a recurring Gmail search. See `docs/email-parsing-rules.md` for the detection rules and what's needed to make either page read the inbox live.
 
+Every job and enquiry has two checkboxes, **Tim** and **David**, so whoever's picking it up can mark it — this is shared live across everyone's devices (polls every few seconds), not just saved in one browser. Ticking one never removes or hides the entry. Needs a small Vercel KV database connected — see `docs/claims-setup.md`.
+
 - **`demo/index.html`** — Home. A landing page linking to both of the above.
 
 ## Installing it as an app (beta)
@@ -31,10 +33,11 @@ screen/dock and opens full-screen like a native app, no app store needed.
    defaulting to the Home page with links to Approved Jobs and New
    Enquiries.
 
-It still has no backend of its own — it's the same static, hand-updated
-data described above, just packaged so it's easy to open on a phone. A
-small service worker (`demo/sw.js`) caches the pages so it still opens
-(showing the last-loaded data) with no signal.
+The job/enquiry data itself is still static and hand-updated, as
+described above — installing it as an app just packages the same pages
+so they're easy to open on a phone. A small service worker
+(`demo/sw.js`) caches the pages so it still opens (showing the
+last-loaded data) with no signal.
 
 ## Branding
 

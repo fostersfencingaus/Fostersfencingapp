@@ -289,6 +289,27 @@
   .detail .who { color: var(--ink); font-weight: 600; }
   .detail .who a { color: var(--accent); text-decoration: none; font-weight: 600; }
   .detail .who a:hover, .detail .who a:focus-visible { text-decoration: underline; }
+
+  .claim-row { display: flex; gap: 8px; margin: 8px 0 0; flex-wrap: wrap; }
+  .claim-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 100px;
+    border: 1px solid var(--line);
+    color: var(--ink-soft);
+    cursor: pointer;
+    user-select: none;
+  }
+  .claim-pill input { cursor: pointer; }
+  .claim-pill:has(input:checked) {
+    background: var(--good-soft);
+    border-color: var(--good);
+    color: var(--good);
+  }
   .meta {
     font-size: 12px;
     color: var(--steel);
@@ -569,6 +590,68 @@
   // Screenshot auto-reading is skipped entirely while this is empty; the
   // manual "paste into chat with Claude" flow still works either way.
   const OCR_ENDPOINT = "https://fostersfencingapp.vercel.app/api/read-quote-screenshot";
+
+  // Live "who's doing this" claims (Tim/David) — shared across devices via
+  // api/claims.js + Vercel KV, not just localStorage, so ticking a box on
+  // one phone shows up on the other's within a few seconds (polling, not
+  // instant push). See docs/claims-setup.md for the one-time KV setup.
+  const CLAIMS_ENDPOINT = "/api/claims";
+  const CLAIMS_LIST = "quotes";
+  const CLAIMS_POLL_MS = 6000;
+  let claimsState = {};
+
+  async function fetchClaims() {
+    try {
+      const res = await fetch(`${CLAIMS_ENDPOINT}?list=${CLAIMS_LIST}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      claimsState = data.claims || {};
+      applyClaimsToCards();
+    } catch (err) {}
+  }
+
+  async function setClaim(key, claimedBy) {
+    try {
+      const res = await fetch(CLAIMS_ENDPOINT, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ list: CLAIMS_LIST, key, claimedBy })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        claimsState = data.claims || claimsState;
+      }
+    } catch (err) {}
+    applyClaimsToCards();
+  }
+
+  function applyClaimsToCards() {
+    document.querySelectorAll("[data-claim-key]").forEach(row => {
+      const key = row.getAttribute("data-claim-key");
+      const claimedBy = claimsState[key] || null;
+      const timInput = row.querySelector('[data-role="claim-tim-input"]');
+      const davidInput = row.querySelector('[data-role="claim-david-input"]');
+      if (timInput) timInput.checked = claimedBy === "tim";
+      if (davidInput) davidInput.checked = claimedBy === "david";
+    });
+  }
+
+  // Ticking Tim automatically unticks David on that same card (and vice
+  // versa) — a job's claimed by one person at a time. Unticking clears it.
+  function wireClaimRow(row) {
+    if (!row) return;
+    const key = row.getAttribute("data-claim-key");
+    const timInput = row.querySelector('[data-role="claim-tim-input"]');
+    const davidInput = row.querySelector('[data-role="claim-david-input"]');
+    timInput.addEventListener("change", () => {
+      if (timInput.checked) davidInput.checked = false;
+      setClaim(key, timInput.checked ? "tim" : null);
+    });
+    davidInput.addEventListener("change", () => {
+      if (davidInput.checked) timInput.checked = false;
+      setClaim(key, davidInput.checked ? "david" : null);
+    });
+  }
 
   // Matched to each quote's colorId from its booking calendar event —
   // colour = which team it's booked under. Quotes not yet booked (no
@@ -1083,6 +1166,10 @@
           ${quote.example ? '<span class="badge example">Example</span>' : ""}
         </div>
       </div>
+      <div class="claim-row" data-claim-key="${escapeAttr(quote.id)}">
+        <label class="claim-pill"><input type="checkbox" data-role="claim-tim-input" /> Tim</label>
+        <label class="claim-pill"><input type="checkbox" data-role="claim-david-input" /> David</label>
+      </div>
       <div class="detail" data-role="detail"></div>
       ${quote.viewUrl ? `
       <div class="shot-row">
@@ -1121,6 +1208,7 @@
     const startDateInput = card.querySelector('[data-role="date-start"]');
     const endDateInput = card.querySelector('[data-role="date-end"]');
     const addBtn = card.querySelector(".add-cal");
+    wireClaimRow(card.querySelector(".claim-row"));
 
     // Renders the who/note line (and the calendar defaults) from the base
     // quote data, or from a saved screenshot-extraction override if one
@@ -1425,10 +1513,14 @@
       listEl.appendChild(details);
       w.items.slice().sort(byQuoteNumber).forEach(q => body.appendChild(buildCard(q)));
     });
+    applyClaimsToCards();
   }
 
   renderList();
   groupToggle.addEventListener("change", renderList);
+
+  fetchClaims();
+  setInterval(fetchClaims, CLAIMS_POLL_MS);
 
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {

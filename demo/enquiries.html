@@ -345,6 +345,27 @@
     color: var(--steel);
   }
 
+  .claim-row { display: flex; gap: 8px; margin: 8px 0 0; flex-wrap: wrap; }
+  .claim-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 100px;
+    border: 1px solid var(--line);
+    color: var(--ink-soft);
+    cursor: pointer;
+    user-select: none;
+  }
+  .claim-pill input { cursor: pointer; }
+  .claim-pill:has(input:checked) {
+    background: var(--good-soft);
+    border-color: var(--good);
+    color: var(--good);
+  }
+
   .thisweek-heading {
     font-size: 13px;
     font-weight: 700;
@@ -2241,6 +2262,79 @@
     }
   ];
 
+  // Stable per-entry key for the live claim checkboxes (Tim/David) — set
+  // once up front, before any grouping/spreading, so it survives being
+  // copied into the `{...item, suburbName, ...}` objects groupBySuburb/
+  // groupByDate build (a plain array index would be lost there since
+  // those functions don't preserve the original object references).
+  current.forEach((item, i) => { item.claimKey = String(i); });
+
+  // Live "who's doing this" claims (Tim/David) — shared across devices via
+  // api/claims.js + Vercel KV, not just localStorage, so ticking a box on
+  // one phone shows up on the other's within a few seconds (polling, not
+  // instant push). See docs/claims-setup.md for the one-time KV setup.
+  const CLAIMS_ENDPOINT = "/api/claims";
+  const CLAIMS_LIST = "enquiries";
+  const CLAIMS_POLL_MS = 6000;
+  let claimsState = {};
+
+  async function fetchClaims() {
+    try {
+      const res = await fetch(`${CLAIMS_ENDPOINT}?list=${CLAIMS_LIST}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      claimsState = data.claims || {};
+      applyClaimsToCards();
+    } catch (err) {}
+  }
+
+  async function setClaim(key, claimedBy) {
+    try {
+      const res = await fetch(CLAIMS_ENDPOINT, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ list: CLAIMS_LIST, key, claimedBy })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        claimsState = data.claims || claimsState;
+      }
+    } catch (err) {}
+    applyClaimsToCards();
+  }
+
+  function applyClaimsToCards() {
+    document.querySelectorAll("[data-claim-key]").forEach(row => {
+      const key = row.getAttribute("data-claim-key");
+      const claimedBy = claimsState[key] || null;
+      const timInput = row.querySelector('[data-role="claim-tim-input"]');
+      const davidInput = row.querySelector('[data-role="claim-david-input"]');
+      if (timInput) timInput.checked = claimedBy === "tim";
+      if (davidInput) davidInput.checked = claimedBy === "david";
+    });
+  }
+
+  // Since this page rebuilds the list as an HTML string (not per-element,
+  // like the scheduler page), listeners need re-attaching after every
+  // render — ticking Tim automatically unticks David on that same card
+  // (and vice versa); unticking clears the claim.
+  function wireClaimInputs() {
+    document.querySelectorAll("[data-claim-key]").forEach(row => {
+      const key = row.getAttribute("data-claim-key");
+      const timInput = row.querySelector('[data-role="claim-tim-input"]');
+      const davidInput = row.querySelector('[data-role="claim-david-input"]');
+      timInput.addEventListener("change", () => {
+        if (timInput.checked) davidInput.checked = false;
+        setClaim(key, timInput.checked ? "tim" : null);
+      });
+      davidInput.addEventListener("change", () => {
+        if (davidInput.checked) timInput.checked = false;
+        setClaim(key, davidInput.checked ? "david" : null);
+      });
+    });
+    applyClaimsToCards();
+  }
+
   // Primary service area — mostly within a ~10km radius of the Greenwood
   // base. The "Primary area first" toggle surfaces these suburbs (and
   // flags them with 📍) without hiding anything outside the zone.
@@ -2423,6 +2517,10 @@
                 ${item.email || item.phone ? `<div class="contact">${contactLinks(item)}</div>` : ""}
                 ${item.unclear ? `<div class="meta">Source text: "${item.raw}"</div>` : ""}
                 <div class="meta">${metaLine(item, showSuburb)}</div>
+                <div class="claim-row" data-claim-key="${item.claimKey}">
+                  <label class="claim-pill"><input type="checkbox" data-role="claim-tim-input" /> Tim</label>
+                  <label class="claim-pill"><input type="checkbox" data-role="claim-david-input" /> David</label>
+                </div>
               </div>
             `).join("")}
           </div>
@@ -2509,11 +2607,15 @@
     `).join("");
 
     el.innerHTML = heading + body + olderHtml;
+    wireClaimInputs();
   }
 
   let viewMode = "suburb";
   let primaryFirst = false;
   renderCurrentByWeek("current", current, viewMode, primaryFirst);
+
+  fetchClaims();
+  setInterval(fetchClaims, CLAIMS_POLL_MS);
 
   document.getElementById("viewToggle").addEventListener("click", e => {
     const btn = e.target.closest("button[data-mode]");

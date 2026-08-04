@@ -2806,6 +2806,19 @@
     wireClaimInputs();
   }
 
+  // Search results skip the week-by-week folding entirely — every match
+  // is shown flat (still grouped by suburb/date per the current view
+  // mode), since burying a match inside a collapsed "Week of …" section
+  // would defeat the point of searching for it.
+  function renderCurrentFlat(containerId, list, mode, tenKmFirst, fiveKmFirst) {
+    const el = document.getElementById(containerId);
+    const showSuburb = mode === "date";
+    const groupFn = showSuburb ? groupByDate : groupBySuburb;
+    const newCutoff = newCutoffDate();
+    el.innerHTML = groupsToHtml(groupFn(list, tenKmFirst, fiveKmFirst), showSuburb, newCutoff);
+    wireClaimInputs();
+  }
+
   function escapeAttr(str) {
     return String(str)
       .replace(/&/g, "&amp;")
@@ -2834,7 +2847,11 @@
         `<p class="meta" style="margin: 20px 0;">No enquiries match "${escapeAttr(searchQuery)}".</p>`;
       return;
     }
-    renderCurrentByWeek("current", list, viewMode, tenKmFirst, fiveKmFirst);
+    if (searchQuery) {
+      renderCurrentFlat("current", list, viewMode, tenKmFirst, fiveKmFirst);
+    } else {
+      renderCurrentByWeek("current", list, viewMode, tenKmFirst, fiveKmFirst);
+    }
   }
 
   rerender();

@@ -4,7 +4,10 @@
     { "source": "/index.html", "destination": "/demo/index.html" },
     { "source": "/quote-scheduler.html", "destination": "/demo/quote-scheduler.html" },
     { "source": "/enquiries.html", "destination": "/demo/enquiries.html" },
+    { "source": "/clock-in.html", "destination": "/demo/clock-in.html" },
+    { "source": "/admin-hours.html", "destination": "/demo/admin-hours.html" },
     { "source": "/manifest.json", "destination": "/demo/manifest.json" },
+    { "source": "/manifest-timeclock.json", "destination": "/demo/manifest-timeclock.json" },
     { "source": "/sw.js", "destination": "/demo/sw.js" },
     { "source": "/assets/:path*", "destination": "/demo/assets/:path*" }
   ]

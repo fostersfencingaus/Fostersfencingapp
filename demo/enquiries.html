@@ -463,8 +463,12 @@
     <button type="button" role="tab" aria-selected="false" data-mode="date">By date</button>
   </div>
   <label class="primary-toggle">
-    <input type="checkbox" id="primaryFirstToggle" />
-    📍 Primary area first
+    <input type="checkbox" id="tenKmFirstToggle" />
+    📍 Within 10ks first
+  </label>
+  <label class="primary-toggle">
+    <input type="checkbox" id="fiveKmFirstToggle" />
+    🎯 Within 5ks first
   </label>
 </div>
 
@@ -2482,10 +2486,10 @@
     applyClaimsToCards();
   }
 
-  // Primary service area — mostly within a ~10km radius of the Greenwood
-  // base. The "Primary area first" toggle surfaces these suburbs (and
-  // flags them with 📍) without hiding anything outside the zone.
-  const PRIMARY_SUBURBS = new Set([
+  // Service area — mostly within a ~10km radius of the Greenwood base.
+  // The "Within 10ks first" toggle surfaces these suburbs (and flags
+  // them with 📍) without hiding anything outside the zone.
+  const TEN_KM_SUBURBS = new Set([
     "Alexander Heights", "Balcatta", "Balga", "Ballajura", "Beldon", "Carine",
     "City Beach", "Connolly", "Craigie", "Currambine", "Darch", "Dianella",
     "Doubleview", "Duncraig", "Edgewater", "Floreat", "Girrawheen", "Glendalough",
@@ -2497,6 +2501,15 @@
     "Stirling", "Tapping", "Trigg", "Tuart Hill", "Wangara", "Wanneroo",
     "Warwick", "Watermans Bay", "Wembley", "Wembley Downs", "Westminster",
     "Woodlands", "Woodvale", "Yokine"
+  ]);
+
+  // Closer inner ring — within ~5km of the Greenwood base (a subset of
+  // the 10ks set above). The "Within 5ks first" toggle surfaces these
+  // (flagged 🎯) ahead of the wider 10ks group.
+  const FIVE_KM_SUBURBS = new Set([
+    "Carine", "Craigie", "Darch", "Duncraig", "Girrawheen", "Greenwood",
+    "Hamersley", "Hillarys", "Kingsley", "Madeley", "Marangaroo", "Marmion",
+    "Padbury", "Sorrento", "Wangara", "Warwick", "Woodvale"
   ]);
 
   // Cleans up free-typed locations: strips a trailing WA postcode into its
@@ -2523,10 +2536,11 @@
     return { name, postcode, region: region || null };
   }
 
-  // `primaryFirst` reorders the suburb groups so ones in PRIMARY_SUBURBS
-  // come first (with a divider before the rest) — nothing is hidden,
-  // just resorted so the target service area is easy to scan.
-  function groupBySuburb(list, primaryFirst) {
+  // `tenKmFirst`/`fiveKmFirst` reorder the suburb groups so the closer
+  // ring(s) come first (5ks ahead of 10ks ahead of everything else, with
+  // a divider before the rest) — nothing is hidden, just resorted so the
+  // target service area is easy to scan.
+  function groupBySuburb(list, tenKmFirst, fiveKmFirst) {
     const groups = {};
     const needsReview = [];
     list.forEach(item => {
@@ -2540,14 +2554,26 @@
       groups[name].push(enriched);
     });
     const allNames = Object.keys(groups).sort();
-    const toGroup = suburb => ({ heading: suburb, items: groups[suburb], isPrimary: PRIMARY_SUBURBS.has(suburb) });
+    const toGroup = suburb => ({
+      heading: suburb,
+      items: groups[suburb],
+      isTenKm: TEN_KM_SUBURBS.has(suburb),
+      isFiveKm: FIVE_KM_SUBURBS.has(suburb)
+    });
+    const tierOf = name => {
+      if (fiveKmFirst && FIVE_KM_SUBURBS.has(name)) return 0;
+      if (tenKmFirst && TEN_KM_SUBURBS.has(name)) return 1;
+      return 2;
+    };
     let clean;
-    if (primaryFirst) {
-      const primaryNames = allNames.filter(n => PRIMARY_SUBURBS.has(n));
-      const otherNames = allNames.filter(n => !PRIMARY_SUBURBS.has(n));
-      clean = primaryNames.map(toGroup);
-      if (primaryNames.length && otherNames.length) clean.push({ divider: "Other suburbs" });
-      clean.push(...otherNames.map(toGroup));
+    if (tenKmFirst || fiveKmFirst) {
+      clean = [];
+      [0, 1, 2].forEach(tier => {
+        const names = allNames.filter(n => tierOf(n) === tier);
+        if (!names.length) return;
+        if (tier === 2 && clean.length) clean.push({ divider: "Other suburbs" });
+        clean.push(...names.map(toGroup));
+      });
     } else {
       clean = allNames.map(toGroup);
     }
@@ -2560,27 +2586,34 @@
   // Same entries, bucketed by the exact day they came in (newest day
   // first) instead of by suburb — so you can scan straight down a
   // Friday, say, and see everything that landed that day regardless of
-  // suburb. `primaryFirst` sorts each day's entries so primary-area ones
-  // (📍) float to the top of that day instead of reordering the days.
-  function groupByDate(list, primaryFirst) {
+  // suburb. `tenKmFirst`/`fiveKmFirst` sort each day's entries so the
+  // closer ring(s) (🎯/📍) float to the top of that day instead of
+  // reordering the days.
+  function groupByDate(list, tenKmFirst, fiveKmFirst) {
     const weekdayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
     const groups = {};
     list.forEach(item => {
       let enriched = item;
       if (!item.unclear) {
         const { name, postcode, region } = normalizeSuburb(item.raw);
-        enriched = { ...item, suburbName: name, postcode, region, isPrimary: PRIMARY_SUBURBS.has(name) };
+        enriched = { ...item, suburbName: name, postcode, region, isTenKm: TEN_KM_SUBURBS.has(name), isFiveKm: FIVE_KM_SUBURBS.has(name) };
       }
       const key = item.date || "Date unclear";
       if (!groups[key]) groups[key] = [];
       groups[key].push(enriched);
     });
+    const tierOf = item => {
+      if (item.unclear) return 2;
+      if (fiveKmFirst && item.isFiveKm) return 0;
+      if (tenKmFirst && item.isTenKm) return 1;
+      return 2;
+    };
     return Object.keys(groups)
       .map(date => {
         const parsed = parseEntryDate(date);
         let items = groups[date];
-        if (primaryFirst) {
-          items = [...items].sort((a, b) => (b.isPrimary ? 1 : 0) - (a.isPrimary ? 1 : 0));
+        if (tenKmFirst || fiveKmFirst) {
+          items = [...items].sort((a, b) => tierOf(a) - tierOf(b));
         }
         return {
           heading: parsed ? `${weekdayNames[parsed.getUTCDay()]} ${date}` : date,
@@ -2607,10 +2640,11 @@
   // In the "by date" view, groups are days rather than suburbs, so each
   // card needs to say which suburb it's for — prepended to the meta line.
   function metaLine(item, showSuburb) {
+    const marker = item.isFiveKm ? "🎯 " : (item.isTenKm ? "📍 " : "");
     const suburbPart = showSuburb
       ? (item.unclear
           ? "Suburb unclear — "
-          : `${item.isPrimary ? "📍 " : ""}${item.suburbName}${item.postcode ? " " + item.postcode : ""} — `)
+          : `${marker}${item.suburbName}${item.postcode ? " " + item.postcode : ""} — `)
       : "";
     const postcodePart = !showSuburb && item.postcode ? " — WA " + item.postcode : "";
     const regionPart = item.region ? " (" + item.region + ")" : "";
@@ -2648,7 +2682,7 @@
       }
       return `
         <section class="suburb-group">
-          <h2 class="suburb-name">${g.isPrimary ? "📍 " : ""}${g.heading} <span class="count">${g.items.length} ${g.items.length === 1 ? "enquiry" : "enquiries"}</span></h2>
+          <h2 class="suburb-name">${g.isFiveKm ? "🎯 " : (g.isTenKm ? "📍 " : "")}${g.heading} <span class="count">${g.items.length} ${g.items.length === 1 ? "enquiry" : "enquiries"}</span></h2>
           <div class="list">
             ${g.items.map(item => `
               <div class="card">
@@ -2728,7 +2762,7 @@
   // week (no new entries yet) would wrongly keep last week's entries
   // labelled "This week" and unfolded instead of rolling them into a
   // collapsed section like every other past week.
-  function renderCurrentByWeek(containerId, list, mode, primaryFirst) {
+  function renderCurrentByWeek(containerId, list, mode, tenKmFirst, fiveKmFirst) {
     const el = document.getElementById(containerId);
     const weeks = groupByWeek(list);
     const now = new Date();
@@ -2739,7 +2773,7 @@
     const olderWeeks = hasThisWeekData ? weeks.slice(1) : weeks;
 
     const showSuburb = mode === "date";
-    const groupFn = list => (showSuburb ? groupByDate(list, primaryFirst) : groupBySuburb(list, primaryFirst));
+    const groupFn = list => (showSuburb ? groupByDate(list, tenKmFirst, fiveKmFirst) : groupBySuburb(list, tenKmFirst, fiveKmFirst));
     const newCutoff = newCutoffDate();
 
     // "This week" is collapsible just like older weeks, just open by
@@ -2781,7 +2815,8 @@
   }
 
   let viewMode = "suburb";
-  let primaryFirst = false;
+  let tenKmFirst = false;
+  let fiveKmFirst = false;
   let searchQuery = "";
 
   function rerender() {
@@ -2791,7 +2826,7 @@
         `<p class="meta" style="margin: 20px 0;">No enquiries match "${escapeAttr(searchQuery)}".</p>`;
       return;
     }
-    renderCurrentByWeek("current", list, viewMode, primaryFirst);
+    renderCurrentByWeek("current", list, viewMode, tenKmFirst, fiveKmFirst);
   }
 
   rerender();
@@ -2811,8 +2846,13 @@
     rerender();
   });
 
-  document.getElementById("primaryFirstToggle").addEventListener("change", e => {
-    primaryFirst = e.target.checked;
+  document.getElementById("tenKmFirstToggle").addEventListener("change", e => {
+    tenKmFirst = e.target.checked;
+    rerender();
+  });
+
+  document.getElementById("fiveKmFirstToggle").addEventListener("change", e => {
+    fiveKmFirst = e.target.checked;
     rerender();
   });
 

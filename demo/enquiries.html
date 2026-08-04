@@ -2815,7 +2815,16 @@
     const showSuburb = mode === "date";
     const groupFn = showSuburb ? groupByDate : groupBySuburb;
     const newCutoff = newCutoffDate();
-    el.innerHTML = groupsToHtml(groupFn(list, tenKmFirst, fiveKmFirst), showSuburb, newCutoff);
+    let groups = groupFn(list, tenKmFirst, fiveKmFirst);
+    // By-suburb search results span every week, so within each suburb
+    // put the newest enquiry on top instead of the oldest-first order
+    // entries happen to sit in in the underlying array.
+    if (!showSuburb) {
+      groups = groups.map(g => g.items
+        ? { ...g, items: [...g.items].sort((a, b) => (parseEntryDate(b.date) || 0) - (parseEntryDate(a.date) || 0)) }
+        : g);
+    }
+    el.innerHTML = groupsToHtml(groups, showSuburb, newCutoff);
     wireClaimInputs();
   }
 

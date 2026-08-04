@@ -1,0 +1,14 @@
+{
+  "name": "Fosters Fencing Clock In",
+  "short_name": "FF Clock In",
+  "description": "Worker clock in/out for Fosters Fencing",
+  "start_url": "./clock-in.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#eef1f6",
+  "theme_color": "#163b6b",
+  "icons": [
+    { "src": "assets/icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "assets/icons/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

@@ -1,0 +1,402 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Admin — Worker Hours — Fosters Fencing</title>
+<link rel="manifest" href="manifest-timeclock.json" />
+<meta name="theme-color" content="#163b6b" />
+<link rel="apple-touch-icon" href="assets/icons/icon-192.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="FF Admin" />
+<style>
+  :root {
+    --ink: #142235; --ink-soft: #51637a; --paper: #eef1f6; --paper-raised: #ffffff;
+    --line: #d7dee6; --steel: #6b7887; --accent: #163b6b; --accent-soft: #e2e9f3;
+    --gold: #b9852a; --gold-soft: #f6ecd6; --brand-red: #b8262a; --brand-red-soft: #f5dfe0;
+    --green: #1e7a4a; --green-soft: #dcf0e4; --focus: #163b6b;
+    --shadow: 0 1px 2px rgba(20, 34, 53, 0.07), 0 4px 12px rgba(20, 34, 53, 0.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ink: #e8ecf1; --ink-soft: #a9b5c4; --paper: #0e1620; --paper-raised: #161f2b;
+      --line: #263242; --steel: #8592a2; --accent: #6c9bdb; --accent-soft: #1d2c40;
+      --gold: #dfb151; --gold-soft: #372c14; --brand-red: #e2585b; --brand-red-soft: #3a2124;
+      --green: #4ec089; --green-soft: #17351f; --focus: #6c9bdb;
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 6px 16px rgba(0, 0, 0, 0.35);
+    }
+  }
+  :root[data-theme="dark"] {
+    --ink: #e8ecf1; --ink-soft: #a9b5c4; --paper: #0e1620; --paper-raised: #161f2b;
+    --line: #263242; --steel: #8592a2; --accent: #6c9bdb; --accent-soft: #1d2c40;
+    --gold: #dfb151; --gold-soft: #372c14; --brand-red: #e2585b; --brand-red-soft: #3a2124;
+    --green: #4ec089; --green-soft: #17351f; --focus: #6c9bdb;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 6px 16px rgba(0, 0, 0, 0.35);
+  }
+  :root[data-theme="light"] {
+    --ink: #142235; --ink-soft: #51637a; --paper: #eef1f6; --paper-raised: #ffffff;
+    --line: #d7dee6; --steel: #6b7887; --accent: #163b6b; --accent-soft: #e2e9f3;
+    --gold: #b9852a; --gold-soft: #f6ecd6; --brand-red: #b8262a; --brand-red-soft: #f5dfe0;
+    --green: #1e7a4a; --green-soft: #dcf0e4; --focus: #163b6b;
+    --shadow: 0 1px 2px rgba(20, 34, 53, 0.07), 0 4px 12px rgba(20, 34, 53, 0.06);
+  }
+
+  html, body { margin: 0; padding: 0; background: var(--paper); color: var(--ink); }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    line-height: 1.45; max-width: 920px; margin: 0 auto; min-height: 100vh;
+  }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+
+  .brandbar { height: 6px; background: linear-gradient(90deg, var(--accent) 0%, #2f5c9c 55%, var(--gold) 100%); }
+  .page-pad { padding: clamp(16px, 4vw, 32px); }
+
+  .tabnav { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 13px; margin-bottom: 20px; }
+  .tabnav a { color: var(--ink-soft); text-decoration: none; padding: 4px 0; border-bottom: 2px solid transparent; }
+  .tabnav a.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+  .tabnav a:hover { color: var(--accent); }
+
+  header.page { display: flex; align-items: center; gap: 14px; margin-bottom: 22px; }
+  .badge-mark { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; border: 3px solid var(--gold); box-shadow: var(--shadow); flex: none; }
+  .eyebrow { font-family: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--steel); }
+  h1 { font-size: clamp(20px, 4vw, 26px); margin: 2px 0 0; letter-spacing: -0.01em; }
+
+  .card { background: var(--paper-raised); border: 1px solid var(--line); border-radius: 16px; padding: 22px; box-shadow: var(--shadow); }
+  .screen[hidden] { display: none; }
+
+  /* --- login screen --- */
+  #screenLogin { max-width: 380px; margin: 40px auto 0; display: flex; flex-direction: column; gap: 14px; }
+  .pin-label { text-align: center; font-size: 15px; color: var(--ink-soft); }
+  .pin-input {
+    width: 100%; box-sizing: border-box; font-size: 30px; letter-spacing: 0.3em; text-align: center;
+    padding: 14px 10px; border-radius: 12px; border: 1px solid var(--line); background: var(--paper);
+    color: var(--ink); font-family: ui-monospace, monospace;
+  }
+  .pin-input:focus { outline: none; border-color: var(--focus); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .btn { appearance: none; border: none; border-radius: 12px; padding: 14px 20px; font-size: 15.5px; font-weight: 700; cursor: pointer; }
+  .btn:disabled { opacity: 0.55; cursor: not-allowed; }
+  .btn-primary { background: var(--accent); color: #fff; width: 100%; }
+  .btn-ghost { background: var(--accent-soft); color: var(--accent); }
+  .msg { font-size: 13.5px; border-radius: 10px; padding: 10px 14px; }
+  .msg.error { background: var(--brand-red-soft); color: var(--brand-red); }
+  .msg.info { background: var(--accent-soft); color: var(--accent); }
+  .msg[hidden] { display: none; }
+
+  /* --- dashboard screen --- */
+  .toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; margin-bottom: 18px; }
+  .field { display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; color: var(--ink-soft); }
+  .field select, .field input {
+    padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--paper-raised);
+    color: var(--ink); font-size: 14px;
+  }
+  .toolbar .spacer { flex: 1; }
+  .signout-link { background: none; border: none; color: var(--steel); font-size: 12.5px; text-decoration: underline; cursor: pointer; padding: 8px 0; }
+
+  .summary-row { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 18px; }
+  .summary-card { background: var(--paper-raised); border: 1px solid var(--line); border-radius: 14px; padding: 14px 18px; box-shadow: var(--shadow); min-width: 140px; }
+  .summary-card .label { font-size: 12px; color: var(--steel); text-transform: uppercase; letter-spacing: 0.03em; }
+  .summary-card .value { font-size: 20px; font-weight: 700; margin-top: 2px; }
+  .summary-card.open .value { color: var(--green); }
+
+  table.hours { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  table.hours th, table.hours td { text-align: left; padding: 9px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  table.hours th { color: var(--steel); font-weight: 600; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.03em; }
+  table.hours td.hours { text-align: right; font-variant-numeric: tabular-nums; }
+  table.hours tr.open-row { background: var(--green-soft); }
+  table.hours a.loc-link { color: var(--accent); text-decoration: none; font-size: 12.5px; }
+  table.hours a.loc-link:hover { text-decoration: underline; }
+  .table-wrap { overflow-x: auto; }
+  .empty-note { color: var(--steel); font-size: 13.5px; text-align: center; padding: 20px 0; }
+
+  footer.page { text-align: center; font-size: 12px; color: var(--steel); padding: 24px 0 10px; }
+</style>
+</head>
+<body>
+
+<div class="brandbar" aria-hidden="true"></div>
+
+<div class="page-pad">
+
+<nav class="tabnav">
+  <a href="index.html">Home</a>
+  <a href="quote-scheduler.html">Approved Jobs</a>
+  <a href="enquiries.html">New Enquiries</a>
+  <a href="clock-in.html">Clock In</a>
+  <a href="admin-hours.html" class="active">Admin</a>
+</nav>
+
+<header class="page">
+  <img class="badge-mark" src="assets/fosters-fencing-logo.jpg" alt="Fosters Fencing logo" />
+  <div>
+    <span class="eyebrow">Fosters Fencing</span>
+    <h1>Worker Hours — Admin</h1>
+  </div>
+</header>
+
+<!-- Login screen -->
+<section id="screenLogin" class="screen">
+  <div class="card" style="display:flex; flex-direction:column; gap:14px;">
+    <p class="pin-label">Owner / Admin PIN</p>
+    <input type="password" inputmode="numeric" autocomplete="off" class="pin-input" id="pinInput" placeholder="••••" maxlength="20" />
+    <div class="msg error" id="loginError" hidden></div>
+    <button type="button" class="btn btn-primary" id="pinSubmitBtn">Sign in</button>
+  </div>
+</section>
+
+<!-- Dashboard screen -->
+<section id="screenDashboard" class="screen" hidden>
+  <div class="toolbar">
+    <div class="field">
+      <label for="workerFilter">Worker</label>
+      <select id="workerFilter"><option value="">All workers</option></select>
+    </div>
+    <div class="field">
+      <label for="fromDate">From</label>
+      <input type="date" id="fromDate" />
+    </div>
+    <div class="field">
+      <label for="toDate">To</label>
+      <input type="date" id="toDate" />
+    </div>
+    <div class="field">
+      <label>&nbsp;</label>
+      <button type="button" class="btn btn-ghost" id="refreshBtn">Refresh</button>
+    </div>
+    <div class="spacer"></div>
+    <button type="button" class="signout-link" id="signOutBtn">Sign out</button>
+  </div>
+
+  <div class="msg error" id="dashError" hidden></div>
+
+  <div class="summary-row" id="summaryRow"></div>
+
+  <div class="card">
+    <div class="table-wrap">
+      <table class="hours">
+        <thead>
+          <tr>
+            <th>Worker</th>
+            <th>Clock in</th>
+            <th>Location</th>
+            <th>Clock out</th>
+            <th>Location</th>
+            <th class="hours">Hours</th>
+          </tr>
+        </thead>
+        <tbody id="hoursBody"></tbody>
+      </table>
+    </div>
+    <p class="empty-note" id="hoursEmpty" hidden>No shifts in this range.</p>
+  </div>
+</section>
+
+</div>
+
+<footer class="page">Fosters Fencing — Admin view. Read-only: edits happen in the Supabase dashboard.</footer>
+
+<script type="module">
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+// ---- Configuration -------------------------------------------------------
+// Same Supabase project as demo/clock-in.html. See docs/clock-in-setup.md.
+const CONFIG = {
+  supabaseUrl: "https://YOUR-PROJECT-REF.supabase.co",
+  supabaseAnonKey: "YOUR-ANON-PUBLIC-KEY",
+  // The login email for the owner's admin account (profiles.is_admin = true).
+  adminEmail: "owner@fostersfencing.local"
+};
+// ---------------------------------------------------------------------------
+
+const supabase = createClient(CONFIG.supabaseUrl, CONFIG.supabaseAnonKey, {
+  auth: { storageKey: "ff-admin-auth", persistSession: true, autoRefreshToken: true }
+});
+
+const screenLogin = document.getElementById("screenLogin");
+const screenDashboard = document.getElementById("screenDashboard");
+const pinInput = document.getElementById("pinInput");
+const pinSubmitBtn = document.getElementById("pinSubmitBtn");
+const loginError = document.getElementById("loginError");
+const signOutBtn = document.getElementById("signOutBtn");
+const workerFilter = document.getElementById("workerFilter");
+const fromDate = document.getElementById("fromDate");
+const toDate = document.getElementById("toDate");
+const refreshBtn = document.getElementById("refreshBtn");
+const dashError = document.getElementById("dashError");
+const summaryRow = document.getElementById("summaryRow");
+const hoursBody = document.getElementById("hoursBody");
+const hoursEmpty = document.getElementById("hoursEmpty");
+
+function showScreen(screen) {
+  for (const s of [screenLogin, screenDashboard]) s.hidden = s !== screen;
+}
+
+function fmtDateTime(iso) {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleString(undefined, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
+}
+function fmtHours(h) {
+  if (h === null || h === undefined) return "—";
+  const hrs = Math.floor(h);
+  const mins = Math.round((h - hrs) * 60);
+  return `${hrs}h ${String(mins).padStart(2, "0")}m`;
+}
+function locLink(lat, lng) {
+  if (lat === null || lat === undefined || lng === null || lng === undefined) return "—";
+  const url = `https://www.google.com/maps?q=${lat},${lng}`;
+  return `<a class="loc-link" href="${url}" target="_blank" rel="noopener">Map ↗</a>`;
+}
+function isoDateOnly(d) {
+  return d.toISOString().slice(0, 10);
+}
+
+async function signIn() {
+  const pin = pinInput.value.trim();
+  if (!pin) return;
+  loginError.hidden = true;
+  pinSubmitBtn.disabled = true;
+  pinSubmitBtn.textContent = "Signing in…";
+  const { error } = await supabase.auth.signInWithPassword({ email: CONFIG.adminEmail, password: pin });
+  pinSubmitBtn.disabled = false;
+  pinSubmitBtn.textContent = "Sign in";
+  if (error) {
+    loginError.textContent = "Incorrect PIN — try again.";
+    loginError.hidden = false;
+    pinInput.value = "";
+    pinInput.focus();
+    return;
+  }
+  await enterDashboard();
+}
+
+pinSubmitBtn.addEventListener("click", signIn);
+pinInput.addEventListener("keydown", (e) => { if (e.key === "Enter") signIn(); });
+
+signOutBtn.addEventListener("click", async () => {
+  await supabase.auth.signOut();
+  showScreen(screenLogin);
+  pinInput.value = "";
+});
+
+let workers = [];
+
+async function enterDashboard() {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) { showScreen(screenLogin); return; }
+
+  const { data: profile, error: profileErr } = await supabase
+    .from("profiles")
+    .select("id, name, is_admin")
+    .eq("id", session.user.id)
+    .maybeSingle();
+
+  if (profileErr || !profile || !profile.is_admin) {
+    loginError.textContent = "This login isn't an admin account.";
+    loginError.hidden = false;
+    await supabase.auth.signOut();
+    showScreen(screenLogin);
+    return;
+  }
+
+  // Default range: last 14 days.
+  const today = new Date();
+  const start = new Date(today);
+  start.setDate(start.getDate() - 13);
+  fromDate.value = isoDateOnly(start);
+  toDate.value = isoDateOnly(today);
+
+  const { data: profileRows } = await supabase.from("profiles").select("id, name").order("name");
+  workers = profileRows || [];
+  workerFilter.innerHTML = '<option value="">All workers</option>' +
+    workers.map((w) => `<option value="${w.id}">${w.name}</option>`).join("");
+
+  showScreen(screenDashboard);
+  await loadHours();
+}
+
+async function loadHours() {
+  dashError.hidden = true;
+  let query = supabase
+    .from("time_entries")
+    .select("id, clock_in_at, clock_in_lat, clock_in_lng, clock_out_at, clock_out_lat, clock_out_lng, hours_worked, profiles(name)")
+    .order("clock_in_at", { ascending: false });
+
+  if (workerFilter.value) query = query.eq("worker_id", workerFilter.value);
+  if (fromDate.value) query = query.gte("clock_in_at", `${fromDate.value}T00:00:00`);
+  if (toDate.value) query = query.lte("clock_in_at", `${toDate.value}T23:59:59`);
+
+  const { data, error } = await query;
+  if (error) {
+    dashError.textContent = error.message || "Couldn't load hours.";
+    dashError.hidden = false;
+    return;
+  }
+
+  renderSummary(data || []);
+  renderTable(data || []);
+}
+
+function renderSummary(rows) {
+  const totalsByWorker = new Map();
+  let openCount = 0;
+  for (const row of rows) {
+    const name = row.profiles?.name || "Unknown";
+    const hrs = Number(row.hours_worked || 0);
+    totalsByWorker.set(name, (totalsByWorker.get(name) || 0) + hrs);
+    if (!row.clock_out_at) openCount += 1;
+  }
+
+  summaryRow.innerHTML = "";
+  const openCard = document.createElement("div");
+  openCard.className = "summary-card open";
+  openCard.innerHTML = `<div class="label">Currently clocked in</div><div class="value">${openCount}</div>`;
+  summaryRow.appendChild(openCard);
+
+  for (const [name, hrs] of [...totalsByWorker.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
+    const card = document.createElement("div");
+    card.className = "summary-card";
+    card.innerHTML = `<div class="label">${name}</div><div class="value">${fmtHours(hrs)}</div>`;
+    summaryRow.appendChild(card);
+  }
+}
+
+function renderTable(rows) {
+  hoursBody.innerHTML = "";
+  if (rows.length === 0) {
+    hoursEmpty.hidden = false;
+    return;
+  }
+  hoursEmpty.hidden = true;
+  for (const row of rows) {
+    const tr = document.createElement("tr");
+    if (!row.clock_out_at) tr.className = "open-row";
+    tr.innerHTML = `
+      <td>${row.profiles?.name || "Unknown"}</td>
+      <td>${fmtDateTime(row.clock_in_at)}</td>
+      <td>${locLink(row.clock_in_lat, row.clock_in_lng)}</td>
+      <td>${row.clock_out_at ? fmtDateTime(row.clock_out_at) : "still clocked in"}</td>
+      <td>${locLink(row.clock_out_lat, row.clock_out_lng)}</td>
+      <td class="hours">${fmtHours(row.hours_worked)}</td>
+    `;
+    hoursBody.appendChild(tr);
+  }
+}
+
+workerFilter.addEventListener("change", loadHours);
+fromDate.addEventListener("change", loadHours);
+toDate.addEventListener("change", loadHours);
+refreshBtn.addEventListener("click", loadHours);
+
+// Light auto-refresh so the "currently clocked in" view stays live.
+setInterval(() => { if (!screenDashboard.hidden) loadHours(); }, 60000);
+
+const { data: { session: existingSession } } = await supabase.auth.getSession();
+if (existingSession) {
+  await enterDashboard();
+} else {
+  showScreen(screenLogin);
+}
+</script>
+
+</body>
+</html>

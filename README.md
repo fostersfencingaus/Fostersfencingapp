@@ -39,6 +39,21 @@ so they're easy to open on a phone. A small service worker
 (`demo/sw.js`) caches the pages so it still opens (showing the
 last-loaded data) with no signal.
 
+## Worker clock-in (beta, separate feature)
+
+- **`demo/clock-in.html`** — Each of the 3 workers picks their name,
+  enters their PIN, and taps Clock In / Clock Out. Their GPS location and
+  timestamp are recorded with each tap, and hours worked are calculated
+  automatically. Workers only ever see their own history.
+- **`demo/admin-hours.html`** — Owner-only view of all workers' shifts,
+  locations, and hours.
+
+This is a separate feature from Approved Jobs / New Enquiries above, and
+uses its own backend (Supabase, with Row Level Security so each worker's
+login can only read their own shifts) rather than the Vercel KV store the
+claims feature uses. See `docs/clock-in-setup.md` for setup — it needs a
+Supabase project and a login created per worker before it'll work.
+
 ## Branding
 
 Colors and the logo mark are pulled from the actual Fosters Fencing quote letterhead: navy, gold, red on white/near-black. Logo is embedded inline (base64) in each page so they stay self-contained; the source image also lives at `demo/assets/fosters-fencing-logo.jpg`.

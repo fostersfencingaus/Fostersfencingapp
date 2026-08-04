@@ -227,10 +227,16 @@
 
   .toolbar {
     display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 14px;
+    margin-bottom: 26px;
+  }
+  .radius-toggles {
+    display: flex;
     align-items: center;
     gap: 16px;
     flex-wrap: wrap;
-    margin-bottom: 26px;
   }
   .view-toggle {
     display: inline-flex;
@@ -462,14 +468,16 @@
     <button type="button" role="tab" aria-selected="true" data-mode="suburb" class="active">By suburb</button>
     <button type="button" role="tab" aria-selected="false" data-mode="date">By date</button>
   </div>
-  <label class="primary-toggle">
-    <input type="checkbox" id="fiveKmFirstToggle" />
-    🎯 Within 5ks first
-  </label>
-  <label class="primary-toggle">
-    <input type="checkbox" id="tenKmFirstToggle" />
-    📍 Within 10ks first
-  </label>
+  <div class="radius-toggles">
+    <label class="primary-toggle">
+      <input type="checkbox" id="fiveKmFirstToggle" />
+      🎯 Within 5ks first
+    </label>
+    <label class="primary-toggle">
+      <input type="checkbox" id="tenKmFirstToggle" />
+      📍 Within 10ks first
+    </label>
+  </div>
 </div>
 
 <div id="current"></div>

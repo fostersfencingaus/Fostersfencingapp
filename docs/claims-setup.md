@@ -1,10 +1,19 @@
-# Live "who's doing this" checkboxes + synced screenshot reads
+# Live "who's doing this" / "booked in" checkboxes + synced screenshot reads
 
-Both `demo/quote-scheduler.html` and `demo/enquiries.html` show two
-checkboxes on every card — **Tim** and **David** — so whoever picks up a
-job or enquiry can mark it, and everyone else sees that live on their own
-device. Checking one doesn't remove or hide the entry, it just shows who's
-on it.
+`demo/enquiries.html` shows two checkboxes on every card — **Tim** and
+**David** — so whoever picks up an enquiry can mark it, and everyone else
+sees that live on their own device. Checking one doesn't remove or hide
+the entry, it just shows who's on it.
+
+`demo/quote-scheduler.html` shows a single **📅 Booked in** checkbox
+instead — there's no "who's doing it" split for approvals, just whether
+the job's actually booked. If the daily calendar scan has already found
+a matching booking (`bookedDate` set), the box is pre-ticked and locked,
+since that's a confirmed fact, not a claim. Jobs without a calendar match
+yet get a normal, togglable box, for flagging one that's booked in
+verbally or off-calendar ahead of the next scan — once that scan finds
+the matching calendar event, the box switches over to the locked,
+calendar-confirmed state automatically.
 
 `demo/quote-scheduler.html` also syncs screenshot-read details (who,
 location, note) the same way — applying a screenshot read on one device
@@ -21,8 +30,9 @@ one device.
 - **A Vercel KV database** (via the Upstash for Redis marketplace
   integration — Vercel retired the old native "KV" product in favour of
   this) is connected to the project, on the Free plan.
-- **`api/claims.js`** — reads/writes which entries are claimed by Tim or
-  David.
+- **`api/claims.js`** — reads/writes which enquiries are claimed by Tim or
+  David, and which not-yet-calendar-confirmed jobs are manually ticked
+  "Booked in".
 - **`api/overrides.js`** — reads/writes the screenshot-read overrides for
   Approved Jobs, in the same KV database under a different key.
 - Both pages poll their endpoint every 15 seconds, and immediately after
@@ -36,10 +46,13 @@ another, including via the periodic poll (not just on page load).
 
 ## How it behaves
 
-- Ticking **Tim** automatically unticks **David** on that same entry (and
-  vice versa) — a job is claimed by one person at a time, not both.
-- Unticking a box clears the claim entirely. Nothing is ever removed or
-  hidden — claiming just shows who's on it.
+- On enquiries, ticking **Tim** automatically unticks **David** on that
+  same entry (and vice versa) — an enquiry is claimed by one person at a
+  time, not both. Unticking a box clears the claim entirely. Nothing is
+  ever removed or hidden — claiming just shows who's on it.
+- On Approved Jobs, **📅 Booked in** is a single box: calendar-confirmed
+  jobs show it locked checked; everything else is a plain manual toggle,
+  synced the same way.
 - Applying a screenshot read on Approved Jobs updates the card everywhere;
   "Revert" clears it everywhere too.
 - Updates aren't instant — each device checks for changes roughly every

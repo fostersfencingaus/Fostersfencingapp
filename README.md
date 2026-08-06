@@ -11,7 +11,7 @@ Both are static, single-file HTML — no build step, open directly in a browser.
 
 Both use hardcoded data kept up to date by hand from a recurring Gmail search. See `docs/email-parsing-rules.md` for the detection rules and what's needed to make either page read the inbox live.
 
-Every job and enquiry has two checkboxes, **Tim** and **David**, so whoever's picking it up can mark it — this is shared live across everyone's devices (polls every ~15 seconds), not just saved in one browser. Ticking one never removes or hides the entry. Needs a small Vercel KV database connected — see `docs/claims-setup.md`.
+Every enquiry has two checkboxes, **Tim** and **David**, so whoever's picking it up can mark it — this is shared live across everyone's devices (polls every ~15 seconds), not just saved in one browser. Ticking one never removes or hides the entry. Every approved job instead has a single **📅 Booked in** checkbox — pre-ticked and locked once the daily calendar scan finds its booking, otherwise a manual toggle for flagging one booked in ahead of the scan. Both need a small Vercel KV database connected — see `docs/claims-setup.md`.
 
 - **`demo/index.html`** — Home. A landing page linking to both of the above.
 

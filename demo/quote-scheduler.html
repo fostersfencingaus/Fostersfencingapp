@@ -327,6 +327,8 @@
     border-color: var(--good);
     color: var(--good);
   }
+  .claim-pill:has(input:disabled) { cursor: default; }
+  .claim-pill input:disabled { cursor: default; }
   .meta {
     font-size: 12px;
     color: var(--steel);
@@ -612,10 +614,15 @@
   // manual "paste into chat with Claude" flow still works either way.
   const OCR_ENDPOINT = "https://fostersfencingapp.vercel.app/api/read-quote-screenshot";
 
-  // Live "who's doing this" claims (Tim/David) — shared across devices via
-  // api/claims.js + Vercel KV, not just localStorage, so ticking a box on
-  // one phone shows up on the other's within a few seconds (polling, not
-  // instant push). See docs/claims-setup.md for the one-time KV setup.
+  // Live "booked in" tracking — shared across devices via api/claims.js +
+  // Vercel KV, not just localStorage, so ticking the box on one phone
+  // shows up on the other's within a few seconds (polling, not instant
+  // push). See docs/claims-setup.md for the one-time KV setup. A job
+  // whose booking the daily calendar scan already found (quote.bookedDate
+  // is set) shows the box pre-ticked and locked — nothing to claim there,
+  // the calendar already confirmed it. Only jobs without a calendar match
+  // yet get a manual, togglable box, for booking in verbally/off-calendar
+  // ahead of the next scan.
   const CLAIMS_ENDPOINT = "/api/claims";
   const CLAIMS_LIST = "quotes";
   const CLAIMS_POLL_MS = 15000;
@@ -648,29 +655,22 @@
 
   function applyClaimsToCards() {
     document.querySelectorAll("[data-claim-key]").forEach(row => {
+      const input = row.querySelector('[data-role="claim-booked-input"]');
+      // Calendar-confirmed bookings are locked checked at render time —
+      // there's no manual claim state to sync for those.
+      if (!input || input.disabled) return;
       const key = row.getAttribute("data-claim-key");
-      const claimedBy = claimsState[key] || null;
-      const timInput = row.querySelector('[data-role="claim-tim-input"]');
-      const davidInput = row.querySelector('[data-role="claim-david-input"]');
-      if (timInput) timInput.checked = claimedBy === "tim";
-      if (davidInput) davidInput.checked = claimedBy === "david";
+      input.checked = claimsState[key] === "booked";
     });
   }
 
-  // Ticking Tim automatically unticks David on that same card (and vice
-  // versa) — a job's claimed by one person at a time. Unticking clears it.
   function wireClaimRow(row) {
     if (!row) return;
+    const input = row.querySelector('[data-role="claim-booked-input"]');
+    if (!input || input.disabled) return;
     const key = row.getAttribute("data-claim-key");
-    const timInput = row.querySelector('[data-role="claim-tim-input"]');
-    const davidInput = row.querySelector('[data-role="claim-david-input"]');
-    timInput.addEventListener("change", () => {
-      if (timInput.checked) davidInput.checked = false;
-      setClaim(key, timInput.checked ? "tim" : null);
-    });
-    davidInput.addEventListener("change", () => {
-      if (davidInput.checked) timInput.checked = false;
-      setClaim(key, davidInput.checked ? "david" : null);
+    input.addEventListener("change", () => {
+      setClaim(key, input.checked ? "booked" : null);
     });
   }
 
@@ -1278,8 +1278,10 @@
         </div>
       </div>
       <div class="claim-row" data-claim-key="${escapeAttr(quote.id)}">
-        <label class="claim-pill"><input type="checkbox" data-role="claim-tim-input" /> Tim</label>
-        <label class="claim-pill"><input type="checkbox" data-role="claim-david-input" /> David</label>
+        <label class="claim-pill"${quote.bookedDate ? ' title="Confirmed via the daily calendar scan"' : ""}>
+          <input type="checkbox" data-role="claim-booked-input" ${quote.bookedDate ? "checked disabled" : ""} />
+          📅 Booked in
+        </label>
       </div>
       <div class="detail" data-role="detail"></div>
       ${quote.viewUrl ? `

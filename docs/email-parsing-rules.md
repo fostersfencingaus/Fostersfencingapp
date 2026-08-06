@@ -33,6 +33,8 @@ The list in `demo/quote-scheduler.html` is kept up to date by hand, from a recur
 
 Note: most day-to-day enquiry and reply traffic currently lands in `fostersfencing@hotmail.com.au`, a separate mailbox, and only reaches this Gmail account when manually forwarded. A real integration needs to watch whichever mailbox Invoice2go and clients actually reply to.
 
+**Search breadth:** the recurring check does not pre-filter to `from:cloudmail.net.au` / `from:invoice2go` / `from:hipages` / `subject:"Fosters Enquiry"` — those cover the common cases, but a client go-ahead reply (rule 2/3 above) or an oddly-formatted quote request can land with a different sender or subject once forwarded. Every new message since the last check gets read and classified by content against the rules above, rather than being filtered out up front by sender/subject.
+
 ## Detecting new enquiries (for `demo/enquiries.html`)
 
 Separate from approvals, an **enquiry** is a prospective client asking for a quote/estimate for the first time — no quote number exists yet. Two sources feed this list:

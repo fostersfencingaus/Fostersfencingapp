@@ -242,6 +242,76 @@
   }
   .card.is-example { opacity: 0.82; }
 
+  /* Swipe-left-to-delete: the card sits above a red delete action that's
+     revealed as the card slides left. Swiping past the threshold snaps
+     it open (doesn't delete yet) -- the actual delete only happens on a
+     second, deliberate tap of the revealed button, so a careless swipe
+     can't remove a job by accident. */
+  .swipe-wrapper {
+    position: relative;
+    overflow: hidden;
+    border-radius: 12px;
+  }
+  .swipe-delete-action {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    background: var(--brand-red);
+    border-radius: 12px;
+  }
+  .swipe-delete-btn {
+    appearance: none;
+    border: none;
+    background: none;
+    color: #fff;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    width: 92px;
+    height: 100%;
+    cursor: pointer;
+  }
+  .swipe-wrapper .card {
+    position: relative;
+    touch-action: pan-y;
+    transform: translateX(0);
+    transition: transform 0.2s ease;
+  }
+  .swipe-wrapper.dragging .card { transition: none; }
+
+  .removed-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    background: var(--paper-raised);
+    border: 1px dashed var(--line);
+    border-radius: 10px;
+    padding: 12px 16px;
+  }
+  .removed-info { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+  .removed-meta { font-size: 12.5px; color: var(--ink-soft); }
+  .undo-btn {
+    appearance: none;
+    border: 1px solid var(--accent);
+    background: var(--accent-soft);
+    color: var(--accent);
+    border-radius: 8px;
+    padding: 7px 14px;
+    font: inherit;
+    font-weight: 700;
+    font-size: 13px;
+    cursor: pointer;
+    flex: none;
+  }
+  .undo-btn:hover { filter: brightness(1.05); }
+
   .card-top {
     display: flex;
     align-items: baseline;
@@ -634,6 +704,7 @@
   const CLAIMS_LIST = "quotes";
   const CLAIMS_POLL_MS = 15000;
   let claimsState = {};
+  let claimsLoadedOnce = false;
 
   async function fetchClaims() {
     try {
@@ -641,11 +712,23 @@
       if (!res.ok) return;
       const data = await res.json();
       claimsState = data.claims || {};
-      applyClaimsToCards();
-      // Cheap and non-disruptive (just updates two numbers), so this runs
-      // on every poll — unlike renderList(), it won't reset scroll position
-      // or open/closed weeks if another device changed something.
-      renderStats();
+      if (!claimsLoadedOnce) {
+        // The very first renderList() on page load runs before this
+        // resolves, so it can't yet know which quotes are Done/deleted --
+        // without this, one of those would sit in the main list, in the
+        // wrong place, until something else happened to trigger a
+        // renderList(). This is the one poll allowed to do a full rebuild;
+        // every one after it only touches checkboxes/stats (see below).
+        claimsLoadedOnce = true;
+        renderList();
+      } else {
+        applyClaimsToCards();
+        // Cheap and non-disruptive (just updates checkboxes and two
+        // numbers), so this runs on every later poll — unlike renderList(),
+        // it won't reset scroll position or open/closed weeks if another
+        // device changed something.
+        renderStats();
+      }
     } catch (err) {}
   }
 
@@ -669,6 +752,36 @@
   // still just "is this key claimed, and as what".
   function doneKey(id) { return `${id}::done`; }
   function isDone(quote) { return claimsState[doneKey(quote.id)] === "done"; }
+
+  // Swipe-to-delete: "::deleted" stores the ISO timestamp of the swipe
+  // itself, not a fixed keyword, so the client can compute a 24h auto-purge
+  // countdown and restore the exact same state on "Undo" (clearing the key).
+  // A quote past that 24h window is treated as gone everywhere, even though
+  // the KV key isn't necessarily cleared out yet (best-effort, see the sweep
+  // below) -- visibility never depends on that cleanup actually happening.
+  const DELETE_PURGE_AFTER_MS = 24 * 60 * 60 * 1000;
+  function deletedKey(id) { return `${id}::deleted`; }
+  function deletedAt(quote) { return claimsState[deletedKey(quote.id)] || null; }
+  function isDeleted(quote) { return !!deletedAt(quote); }
+  function deleteHoursLeft(quote) {
+    const ts = deletedAt(quote);
+    if (!ts) return null;
+    const purgeAt = new Date(ts).getTime() + DELETE_PURGE_AFTER_MS;
+    return Math.max(0, (purgeAt - Date.now()) / (60 * 60 * 1000));
+  }
+  function isPurged(quote) {
+    const hrs = deleteHoursLeft(quote);
+    return hrs !== null && hrs <= 0;
+  }
+
+  async function softDeleteQuote(quote) {
+    await setClaim(deletedKey(quote.id), new Date().toISOString());
+    renderList();
+  }
+  async function undoDeleteQuote(quote) {
+    await setClaim(deletedKey(quote.id), null);
+    renderList();
+  }
 
   function applyClaimsToCards() {
     document.querySelectorAll("[data-claim-key]").forEach(row => {
@@ -1344,11 +1457,12 @@
   const realCount = quotes.filter(q => !q.example).length;
 
   // Re-run whenever claims load/change, since "Awaiting a booking" and
-  // "Completed" depend on the done state synced from the KV store, not
-  // just the static quote data.
+  // "Completed" depend on the done/deleted state synced from the KV store,
+  // not just the static quote data.
   function renderStats() {
-    const doneCount = quotes.filter(isDone).length;
-    const awaitingCount = quotes.filter(q => !q.bookedDate && !isDone(q)).length;
+    const live = quotes.filter(q => !isPurged(q) && !isDeleted(q));
+    const doneCount = live.filter(isDone).length;
+    const awaitingCount = live.filter(q => !q.bookedDate && !isDone(q)).length;
     statRow.innerHTML = `
       <div class="stat"><span class="n">${awaitingCount}</span><span class="label">Awaiting a booking</span></div>
       <div class="stat"><span class="n">${approvedCount}</span><span class="label">Invoice2go approvals</span></div>
@@ -1417,7 +1531,7 @@
       .replace(/>/g, "&gt;");
   }
 
-  function buildCard(quote) {
+  function buildCardInner(quote) {
     const card = document.createElement("div");
     card.className = "card" + (quote.example ? " is-example" : "");
 
@@ -1676,6 +1790,131 @@
     return card;
   }
 
+  // Wraps the interactive card in a swipe-to-delete container. Swiping the
+  // card left past a threshold reveals a red delete button underneath
+  // (doesn't delete yet); tapping that button is the actual, deliberate
+  // delete action. Supports both touch (phones) and mouse drag (desktop /
+  // trackpad, and lets Playwright exercise it without a real touchscreen).
+  function buildCard(quote) {
+    const card = buildCardInner(quote);
+    const wrapper = document.createElement("div");
+    wrapper.className = "swipe-wrapper";
+    wrapper.innerHTML = `
+      <div class="swipe-delete-action">
+        <button type="button" class="swipe-delete-btn" data-role="swipe-delete-btn">🗑<span>Delete</span></button>
+      </div>
+    `;
+    wrapper.appendChild(card);
+    wireSwipe(wrapper, card, quote);
+    return wrapper;
+  }
+
+  function wireSwipe(wrapper, card, quote) {
+    const REVEAL_PX = 92;
+    const OPEN_THRESHOLD_PX = 40;
+    let startX = null;
+    let startY = null;
+    let baseX = 0;
+    let currentX = 0;
+    let dragging = false;
+    let axis = null; // 'x' | 'y' | null, locked in once the gesture clears a small deadzone
+    // Browsers fire a synthetic "click" right after mouseup/touchend even
+    // when that release ended a drag — without this, the click handler
+    // below would immediately re-close whatever the drag just opened.
+    let justDragged = false;
+
+    function setX(x) {
+      currentX = Math.max(-REVEAL_PX, Math.min(0, x));
+      card.style.transform = `translateX(${currentX}px)`;
+    }
+    function open() {
+      wrapper.classList.remove("dragging");
+      wrapper.classList.add("revealed");
+      setX(-REVEAL_PX);
+    }
+    function close() {
+      wrapper.classList.remove("dragging");
+      wrapper.classList.remove("revealed");
+      setX(0);
+    }
+
+    function onStart(x, y) {
+      startX = x;
+      startY = y;
+      axis = null;
+      baseX = wrapper.classList.contains("revealed") ? -REVEAL_PX : 0;
+      dragging = true;
+    }
+    function onMove(x, y, ev) {
+      if (!dragging || startX === null) return;
+      const dx = x - startX;
+      const dy = y - startY;
+      if (axis === null) {
+        if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
+        axis = Math.abs(dx) > Math.abs(dy) ? "x" : "y";
+      }
+      if (axis !== "x") return;
+      if (ev && ev.cancelable) ev.preventDefault();
+      wrapper.classList.add("dragging");
+      setX(baseX + dx);
+    }
+    function onEnd() {
+      if (!dragging) return;
+      dragging = false;
+      startX = null;
+      if (axis !== "x") { axis = null; return; }
+      justDragged = true;
+      if (currentX <= -OPEN_THRESHOLD_PX) open(); else close();
+      axis = null;
+    }
+
+    card.addEventListener("touchstart", (e) => {
+      const t = e.touches[0];
+      onStart(t.clientX, t.clientY);
+    }, { passive: true });
+    card.addEventListener("touchmove", (e) => {
+      const t = e.touches[0];
+      onMove(t.clientX, t.clientY, e);
+    }, { passive: false });
+    card.addEventListener("touchend", onEnd);
+    card.addEventListener("touchcancel", onEnd);
+
+    card.addEventListener("mousedown", (e) => {
+      if (e.button !== 0) return;
+      onStart(e.clientX, e.clientY);
+      const onMouseMove = (ev) => onMove(ev.clientX, ev.clientY, ev);
+      const onMouseUp = () => {
+        onEnd();
+        document.removeEventListener("mousemove", onMouseMove);
+        document.removeEventListener("mouseup", onMouseUp);
+      };
+      document.addEventListener("mousemove", onMouseMove);
+      document.addEventListener("mouseup", onMouseUp);
+    });
+
+    // While revealed, the first tap anywhere on the card just closes the
+    // swipe instead of activating whatever's underneath (a checkbox, a
+    // link) — caught in the capture phase so it never reaches those. The
+    // click that terminates a drag itself is swallowed outright (see
+    // justDragged above) rather than treated as this kind of tap.
+    card.addEventListener("click", (e) => {
+      if (justDragged) {
+        justDragged = false;
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+      if (!wrapper.classList.contains("revealed")) return;
+      e.preventDefault();
+      e.stopPropagation();
+      close();
+    }, true);
+
+    wrapper.querySelector('[data-role="swipe-delete-btn"]').addEventListener("click", () => {
+      softDeleteQuote(quote);
+    });
+  }
+
   // Turns a free-typed "18 Jul 2026" style date into a real Date object so
   // approvals can be bucketed into calendar weeks.
   function parseEntryDate(str) {
@@ -1729,6 +1968,26 @@
     items.slice().sort(byQuoteNumber).forEach(q => (container || listEl).appendChild(buildCard(q)));
   }
 
+  // A swiped-away job's row in "Recently removed" -- deliberately not the
+  // full interactive card (no claim checkboxes, no calendar fields), just
+  // enough to identify it and undo, since it's meant to be out of the way
+  // until it either gets restored or ages out at 24h.
+  function buildRemovedRow(quote) {
+    const row = document.createElement("div");
+    row.className = "removed-row";
+    const hrs = deleteHoursLeft(quote);
+    const hrsLabel = hrs === null ? "" : hrs < 1 ? "under 1h" : `${Math.ceil(hrs)}h`;
+    row.innerHTML = `
+      <div class="removed-info">
+        <span class="quote-id">${escapeAttr(quote.id)}</span>
+        <span class="removed-meta">Removed — auto-deletes in ${hrsLabel}</span>
+      </div>
+      <button type="button" class="undo-btn" data-role="undo-btn">↩ Undo</button>
+    `;
+    row.querySelector('[data-role="undo-btn"]').addEventListener("click", () => undoDeleteQuote(quote));
+    return row;
+  }
+
   const groupToggle = document.getElementById("groupUnbookedToggle");
   const searchInput = document.getElementById("searchInput");
   let searchQuery = "";
@@ -1753,7 +2012,11 @@
   function renderList() {
     listEl.innerHTML = "";
 
-    const matched = searchQuery ? quotes.filter(q => matchesSearch(q, searchQuery)) : quotes;
+    // Purged deletions (past the 24h undo window) are dropped before
+    // anything else -- they don't count toward search results, stats, or
+    // any section, same as if the entry had never existed.
+    const searched = searchQuery ? quotes.filter(q => matchesSearch(q, searchQuery)) : quotes;
+    const matched = searched.filter(q => !isPurged(q));
 
     if (searchQuery && matched.length === 0) {
       const empty = document.createElement("p");
@@ -1766,12 +2029,15 @@
       return;
     }
 
-    // Done jobs are pulled out of the main list entirely (awaiting-booking
-    // count, weekly sections, all of it) and rendered in their own
-    // collapsed section at the end instead — ticking "Done" is meant to get
-    // a finished job out of the way, not just decorate its card.
-    const doneItems = matched.filter(isDone);
-    const source = matched.filter(q => !isDone(q));
+    // Swiped-deleted jobs are pulled out first (and win over "Done" if
+    // somehow both) into "Recently removed" below. Done jobs are pulled
+    // out of the main list entirely the same way (awaiting-booking count,
+    // weekly sections, all of it) into their own collapsed section —
+    // ticking "Done" is meant to get a finished job out of the way, not
+    // just decorate its card.
+    const removedItems = matched.filter(isDeleted);
+    const doneItems = matched.filter(q => !isDeleted(q) && isDone(q));
+    const source = matched.filter(q => !isDeleted(q) && !isDone(q));
 
     const grouping = groupToggle.checked;
     const unbooked = source.filter(q => !q.bookedDate);
@@ -1843,6 +2109,19 @@
       doneItems.slice().sort(byQuoteNumber).forEach(q => doneBody.appendChild(buildCard(q)));
     }
 
+    if (removedItems.length > 0) {
+      const removedDetails = document.createElement("details");
+      removedDetails.className = "week";
+      const removedSummary = document.createElement("summary");
+      removedSummary.innerHTML = `🗑 Recently removed <span class="n">· ${removedItems.length} ${removedItems.length === 1 ? "job" : "jobs"}</span>`;
+      removedDetails.appendChild(removedSummary);
+      const removedBody = document.createElement("div");
+      removedBody.className = "week-body";
+      removedDetails.appendChild(removedBody);
+      listEl.appendChild(removedDetails);
+      removedItems.slice().sort(byQuoteNumber).forEach(q => removedBody.appendChild(buildRemovedRow(q)));
+    }
+
     applyClaimsToCards();
     renderStats();
   }
@@ -1859,6 +2138,14 @@
 
   fetchOverrides();
   setInterval(fetchOverrides, OVERRIDES_POLL_MS);
+
+  // A full renderList() is otherwise only triggered by this device's own
+  // interactions (search, the group toggle, a swipe-delete/undo) -- this
+  // catches the case where a deletion simply ages past 24h with nobody
+  // touching the page, so it still disappears without needing a reload.
+  setInterval(() => {
+    if (quotes.some(isPurged)) renderList();
+  }, 60 * 1000);
 
   if ("serviceWorker" in navigator) {
     window.addEventListener("load", () => {

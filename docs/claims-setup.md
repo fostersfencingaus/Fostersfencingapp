@@ -23,6 +23,16 @@ the main list (out of "Awaiting a booking" and its weekly section) into a
 collapsed "✅ Completed" section at the bottom, so finished jobs stop
 cluttering the working list instead of just sitting there ticked.
 
+Every card can also be **swiped left** to remove it — for the odd
+approval that comes through wrong (a duplicate, a stray test entry, that
+kind of thing) rather than a real job. Swiping reveals a red delete
+button underneath; tapping *that* is the actual delete, so a careless
+swipe on its own can't remove anything. It's a soft delete: the job moves
+into a collapsed "🗑 Recently removed" section with an **Undo** button,
+and only disappears for good if it sits there untouched for 24 hours —
+undoing it any time before then puts it straight back in the main list,
+same as it was.
+
 `demo/quote-scheduler.html` also syncs screenshot-read details (who,
 location, note) the same way — applying a screenshot read on one device
 updates that job's card on every device, not just the one that read it.
@@ -40,9 +50,12 @@ one device.
   this) is connected to the project, on the Free plan.
 - **`api/claims.js`** — reads/writes which enquiries are claimed by Tim or
   David, which not-yet-calendar-confirmed jobs are manually ticked
-  "Booked in", and which jobs are ticked "Done" (stored under a separate
-  `<quoteId>::done` key in the same `claims:quotes` entry, so it's one
-  store, not a second database).
+  "Booked in", which jobs are ticked "Done" (stored under a separate
+  `<quoteId>::done` key), and which jobs have been swipe-deleted (a
+  `<quoteId>::deleted` key holding the ISO timestamp of the swipe, not a
+  fixed keyword — that's what the 24h countdown and exact-state "Undo"
+  are computed from). All under the same `claims:quotes` entry, so it's
+  one store, not three separate databases.
 - **`api/overrides.js`** — reads/writes the screenshot-read overrides for
   Approved Jobs, in the same KV database under a different key.
 - Both pages poll their endpoint every 15 seconds, and immediately after
@@ -67,6 +80,16 @@ another, including via the periodic poll (not just on page load).
   every other checkbox on either page, ticking it removes the job from the
   main list — it reappears in the collapsed "Completed" section instead.
   Unticking it (from the Completed section) puts it straight back.
+- **Swipe-to-delete** works the same way membership-wise (out of the main
+  list, into its own collapsed section) but isn't a checkbox — swipe the
+  card left, then tap the red button that's revealed underneath to
+  confirm. It shows up in "Recently removed" with a live "auto-deletes in
+  Xh" countdown from 24h down to under 1h, and an **Undo** button. Once
+  that 24h passes, it's gone from the page for everyone, permanently
+  (visibility is computed purely from elapsed time, so this doesn't
+  depend on any scheduled job actually running — whoever's page happens
+  to be open does a light best-effort cleanup of the stored timestamp
+  every minute, but nothing relies on that succeeding).
 - Applying a screenshot read on Approved Jobs updates the card everywhere;
   "Revert" clears it everywhere too.
 - Updates aren't instant — each device checks for changes roughly every

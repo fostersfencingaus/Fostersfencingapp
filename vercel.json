@@ -4,9 +4,7 @@
     { "source": "/index.html", "destination": "/demo/index.html" },
     { "source": "/quote-scheduler.html", "destination": "/demo/quote-scheduler.html" },
     { "source": "/enquiries.html", "destination": "/demo/enquiries.html" },
-    { "source": "/shopping-list.html", "destination": "/demo/shopping-list.html" },
     { "source": "/manifest.json", "destination": "/demo/manifest.json" },
-    { "source": "/manifest-shopping-list.json", "destination": "/demo/manifest-shopping-list.json" },
     { "source": "/sw.js", "destination": "/demo/sw.js" },
     { "source": "/assets/:path*", "destination": "/demo/assets/:path*" }
   ]

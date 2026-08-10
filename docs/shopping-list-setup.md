@@ -76,6 +76,10 @@ Push/deploy as usual (same Vercel project as the rest of the app —
 - Open the page on a second device (or a second browser tab) at the same
   time and confirm adding/ticking on one shows up on the other within a
   second or two, with no refresh.
+- Try the two touch gestures: press and hold an item for about half a
+  second to edit its text (fixes typos without deleting and re-adding),
+  and swipe an item left far enough to reveal "Remove" to bring up a
+  delete confirmation.
 
 ## How the pieces fit together
 

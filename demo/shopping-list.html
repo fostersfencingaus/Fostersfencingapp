@@ -98,12 +98,18 @@
 
   ul.item-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
   .item {
-    background: var(--paper-raised); border: 1px solid var(--line); border-radius: 14px;
+    position: relative; background: var(--paper-raised); border: 1px solid var(--line); border-radius: 14px;
     box-shadow: var(--shadow); overflow: hidden;
   }
+  .item-swipe-bg {
+    position: absolute; inset: 0; z-index: 0; display: flex; align-items: center; justify-content: flex-end;
+    gap: 6px; padding: 0 20px; background: var(--brand-red); color: #fff; font-size: 13.5px; font-weight: 700;
+    opacity: 0; pointer-events: none;
+  }
   .item-toggle {
-    width: 100%; box-sizing: border-box; display: flex; align-items: center; gap: 14px;
-    background: none; border: none; padding: 14px 16px; cursor: pointer; text-align: left; color: inherit;
+    position: relative; z-index: 1; width: 100%; box-sizing: border-box; display: flex; align-items: center; gap: 14px;
+    background: var(--paper-raised); border: none; padding: 14px 16px; cursor: pointer; text-align: left; color: inherit;
+    touch-action: pan-y; -webkit-user-select: none; user-select: none;
   }
   .item-check {
     flex: none; width: 24px; height: 24px; border-radius: 8px; border: 2px solid var(--line);
@@ -145,6 +151,10 @@
     font-weight: 700; cursor: pointer; background: var(--accent); color: #fff;
   }
   .modal-card button:disabled { opacity: 0.55; cursor: not-allowed; }
+  .modal-actions { display: flex; gap: 10px; }
+  .modal-actions button { flex: 1; }
+  .modal-card button.btn-secondary { background: var(--accent-soft); color: var(--accent); }
+  .modal-card button.btn-danger { background: var(--brand-red); color: #fff; }
 
   footer.page { text-align: center; font-size: 12px; color: var(--steel); padding: 20px 0 8px; }
 </style>
@@ -166,7 +176,7 @@
   <img class="badge-mark" src="assets/fosters-fencing-logo.jpg" alt="Fosters Fencing logo" />
   <span class="eyebrow">Fosters Fencing</span>
   <h1>Shopping List</h1>
-  <p class="lede">Shared with everyone on this page — add what's needed, tick it off once it's bought.</p>
+  <p class="lede">Shared with everyone on this page — add what's needed, tick it off once it's bought. Hold an item to edit it, swipe it left to remove it.</p>
   <p class="whoami" id="whoami" hidden>Adding as <strong id="whoamiName"></strong> · <button type="button" id="changeNameBtn">not you?</button></p>
 </header>
 
@@ -190,6 +200,28 @@
     <p>So everyone can see who added what. Saved on this device only — you won't be asked again here.</p>
     <input type="text" id="nameInput" placeholder="Your name" autocomplete="off" maxlength="60" />
     <button type="button" id="nameSaveBtn">Continue</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="editModal" hidden>
+  <div class="modal-card">
+    <h2>Edit item</h2>
+    <input type="text" id="editInput" autocomplete="off" maxlength="200" />
+    <div class="modal-actions">
+      <button type="button" class="btn-secondary" id="editCancelBtn">Cancel</button>
+      <button type="button" id="editSaveBtn">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="deleteModal" hidden>
+  <div class="modal-card">
+    <h2>Remove item?</h2>
+    <p id="deleteModalText"></p>
+    <div class="modal-actions">
+      <button type="button" class="btn-secondary" id="deleteCancelBtn">Cancel</button>
+      <button type="button" class="btn-danger" id="deleteConfirmBtn">Delete</button>
+    </div>
   </div>
 </div>
 
@@ -224,9 +256,24 @@ const changeNameBtn = document.getElementById("changeNameBtn");
 const nameModal = document.getElementById("nameModal");
 const nameInput = document.getElementById("nameInput");
 const nameSaveBtn = document.getElementById("nameSaveBtn");
+const editModal = document.getElementById("editModal");
+const editInput = document.getElementById("editInput");
+const editSaveBtn = document.getElementById("editSaveBtn");
+const editCancelBtn = document.getElementById("editCancelBtn");
+const deleteModal = document.getElementById("deleteModal");
+const deleteModalText = document.getElementById("deleteModalText");
+const deleteConfirmBtn = document.getElementById("deleteConfirmBtn");
+const deleteCancelBtn = document.getElementById("deleteCancelBtn");
+
+const LONG_PRESS_MS = 550; // hold this long to open edit
+const MOVE_CANCEL_PX = 10; // finger movement past this cancels the long-press
+const SWIPE_TRIGGER_PX = 88; // swipe left past this far to trigger delete
+const SWIPE_MAX_PX = 120; // visual drag is clamped here
 
 let myName = localStorage.getItem(NAME_STORAGE_KEY) || "";
 const items = new Map(); // id -> row
+let editingItem = null;
+let deletingItem = null;
 
 function showError(message) {
   errorMsg.textContent = message;
@@ -264,6 +311,79 @@ nameSaveBtn.addEventListener("click", saveName);
 nameInput.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); saveName(); } });
 changeNameBtn.addEventListener("click", promptForName);
 
+function openEditModal(item) {
+  editingItem = item;
+  editInput.value = item.name;
+  editModal.hidden = false;
+  setTimeout(() => { editInput.focus(); editInput.select(); }, 50);
+}
+function closeEditModal() {
+  editModal.hidden = true;
+  editingItem = null;
+}
+async function saveEdit() {
+  if (!editingItem) return;
+  const item = editingItem;
+  const newName = editInput.value.trim();
+  if (!newName) { editInput.focus(); return; }
+  if (newName === item.name) { closeEditModal(); return; }
+
+  editSaveBtn.disabled = true;
+  editCancelBtn.disabled = true;
+  const previous = item.name;
+  item.name = newName; // optimistic
+  renderList();
+
+  const { error } = await supabase.from("shopping_items").update({ name: newName }).eq("id", item.id);
+
+  editSaveBtn.disabled = false;
+  editCancelBtn.disabled = false;
+  if (error) {
+    item.name = previous; // revert
+    renderList();
+    showError(error.message || "Couldn't save that change.");
+  }
+  closeEditModal();
+}
+editSaveBtn.addEventListener("click", saveEdit);
+editCancelBtn.addEventListener("click", closeEditModal);
+editInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") { e.preventDefault(); saveEdit(); }
+  if (e.key === "Escape") closeEditModal();
+});
+editModal.addEventListener("click", (e) => { if (e.target === editModal) closeEditModal(); });
+
+function openDeleteModal(item) {
+  deletingItem = item;
+  deleteModalText.textContent = `Remove "${item.name}" from the list?`;
+  deleteModal.hidden = false;
+}
+function closeDeleteModal() {
+  deleteModal.hidden = true;
+  deletingItem = null;
+}
+async function confirmDelete() {
+  if (!deletingItem) return;
+  const item = deletingItem;
+  deleteConfirmBtn.disabled = true;
+  deleteCancelBtn.disabled = true;
+
+  const { error } = await supabase.from("shopping_items").delete().eq("id", item.id);
+
+  deleteConfirmBtn.disabled = false;
+  deleteCancelBtn.disabled = false;
+  if (error) {
+    showError(error.message || "Couldn't remove that item.");
+  } else {
+    removeItem(item.id);
+    renderList();
+  }
+  closeDeleteModal();
+}
+deleteConfirmBtn.addEventListener("click", confirmDelete);
+deleteCancelBtn.addEventListener("click", closeDeleteModal);
+deleteModal.addEventListener("click", (e) => { if (e.target === deleteModal) closeDeleteModal(); });
+
 function fmtRelative(iso) {
   const diffMs = Date.now() - new Date(iso).getTime();
   const mins = Math.round(diffMs / 60000);
@@ -296,6 +416,90 @@ function removeItem(id) {
   items.delete(id);
 }
 
+// Wires up an item row's tap-to-toggle, hold-to-edit, and swipe-left-to-delete gestures.
+function attachItemGestures(toggleEl, swipeBgEl, item) {
+  let startX = 0;
+  let startY = 0;
+  let dragging = false;
+  let longPressFired = false;
+  let suppressClick = false;
+  let activePointerId = null;
+  let longPressTimer = null;
+
+  function resetTransform() {
+    toggleEl.style.transition = "transform 0.2s ease";
+    toggleEl.style.transform = "";
+    swipeBgEl.style.opacity = 0;
+  }
+
+  toggleEl.addEventListener("pointerdown", (e) => {
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    activePointerId = e.pointerId;
+    startX = e.clientX;
+    startY = e.clientY;
+    dragging = false;
+    longPressFired = false;
+    toggleEl.style.transition = "none";
+    clearTimeout(longPressTimer);
+    longPressTimer = setTimeout(() => {
+      longPressFired = true;
+      resetTransform();
+      if (navigator.vibrate) navigator.vibrate(15);
+      openEditModal(item);
+    }, LONG_PRESS_MS);
+  });
+
+  toggleEl.addEventListener("pointermove", (e) => {
+    if (e.pointerId !== activePointerId || longPressFired) return;
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+    if (!dragging) {
+      if (Math.abs(dx) > MOVE_CANCEL_PX || Math.abs(dy) > MOVE_CANCEL_PX) {
+        clearTimeout(longPressTimer);
+        if (Math.abs(dx) > Math.abs(dy) && dx < 0) {
+          dragging = true;
+          try { toggleEl.setPointerCapture(activePointerId); } catch (_) { /* ignore */ }
+        }
+      }
+    }
+    if (dragging) {
+      const clamped = Math.max(-SWIPE_MAX_PX, dx);
+      toggleEl.style.transform = `translateX(${clamped}px)`;
+      swipeBgEl.style.opacity = Math.min(1, Math.abs(clamped) / SWIPE_TRIGGER_PX);
+    }
+  });
+
+  function onPointerUp(e) {
+    if (e.pointerId !== activePointerId) return;
+    clearTimeout(longPressTimer);
+    if (longPressFired) {
+      suppressClick = true;
+      activePointerId = null;
+      return;
+    }
+    if (dragging) {
+      suppressClick = true;
+      const dx = e.clientX - startX;
+      resetTransform();
+      if (dx <= -SWIPE_TRIGGER_PX) openDeleteModal(item);
+    }
+    dragging = false;
+    activePointerId = null;
+  }
+  toggleEl.addEventListener("pointerup", onPointerUp);
+  toggleEl.addEventListener("pointercancel", () => {
+    clearTimeout(longPressTimer);
+    resetTransform();
+    dragging = false;
+    activePointerId = null;
+  });
+
+  toggleEl.addEventListener("click", () => {
+    if (suppressClick) { suppressClick = false; return; }
+    togglePurchased(item);
+  });
+}
+
 function renderList() {
   const visible = [...items.values()]
     .filter((item) => !isExpired(item))
@@ -313,6 +517,7 @@ function renderList() {
     if (item.purchased_at) metaParts.push(fmtRemoval(item.purchased_at));
 
     li.innerHTML = `
+      <div class="item-swipe-bg" aria-hidden="true">Remove</div>
       <button type="button" class="item-toggle">
         <span class="item-check" aria-hidden="true"></span>
         <span class="item-body">
@@ -323,7 +528,7 @@ function renderList() {
     `;
     li.querySelector(".item-name").textContent = item.name;
     li.querySelector(".item-meta").textContent = metaParts.join(" · ");
-    li.querySelector(".item-toggle").addEventListener("click", () => togglePurchased(item));
+    attachItemGestures(li.querySelector(".item-toggle"), li.querySelector(".item-swipe-bg"), item);
 
     itemList.appendChild(li);
   }

@@ -73,8 +73,9 @@ module.exports = async function handler(req, res) {
       res.status(400).json({ error: "Expected { list: 'enquiries'|'quotes', key: string, claimedBy }" });
       return;
     }
-    if (claimedBy !== null && claimedBy !== "tim" && claimedBy !== "david") {
-      res.status(400).json({ error: "claimedBy must be \"tim\", \"david\", or null" });
+    const validClaims = list === "quotes" ? ["booked", "done"] : ["tim", "david"];
+    if (claimedBy !== null && !validClaims.includes(claimedBy)) {
+      res.status(400).json({ error: `claimedBy must be ${validClaims.map(v => `"${v}"`).join(" or ")}, or null` });
       return;
     }
     try {

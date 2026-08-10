@@ -327,6 +327,11 @@
     border-color: var(--good);
     color: var(--good);
   }
+  .claim-pill.done:has(input:checked) {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+    color: var(--accent);
+  }
   .claim-pill:has(input:disabled) { cursor: default; }
   .claim-pill input:disabled { cursor: default; }
   .meta {
@@ -635,6 +640,10 @@
       const data = await res.json();
       claimsState = data.claims || {};
       applyClaimsToCards();
+      // Cheap and non-disruptive (just updates two numbers), so this runs
+      // on every poll — unlike renderList(), it won't reset scroll position
+      // or open/closed weeks if another device changed something.
+      renderStats();
     } catch (err) {}
   }
 
@@ -653,25 +662,47 @@
     applyClaimsToCards();
   }
 
+  // "Done" is tracked under a separate key (suffixed "::done") in the same
+  // claims:quotes KV entry as "booked", rather than a whole new store — it's
+  // still just "is this key claimed, and as what".
+  function doneKey(id) { return `${id}::done`; }
+  function isDone(quote) { return claimsState[doneKey(quote.id)] === "done"; }
+
   function applyClaimsToCards() {
     document.querySelectorAll("[data-claim-key]").forEach(row => {
-      const input = row.querySelector('[data-role="claim-booked-input"]');
+      const key = row.getAttribute("data-claim-key");
+      const bookedInput = row.querySelector('[data-role="claim-booked-input"]');
       // Calendar-confirmed bookings are locked checked at render time —
       // there's no manual claim state to sync for those.
-      if (!input || input.disabled) return;
-      const key = row.getAttribute("data-claim-key");
-      input.checked = claimsState[key] === "booked";
+      if (bookedInput && !bookedInput.disabled) {
+        bookedInput.checked = claimsState[key] === "booked";
+      }
+      const doneInput = row.querySelector('[data-role="claim-done-input"]');
+      if (doneInput) {
+        doneInput.checked = claimsState[doneKey(key)] === "done";
+      }
     });
   }
 
   function wireClaimRow(row) {
     if (!row) return;
-    const input = row.querySelector('[data-role="claim-booked-input"]');
-    if (!input || input.disabled) return;
     const key = row.getAttribute("data-claim-key");
-    input.addEventListener("change", () => {
-      setClaim(key, input.checked ? "booked" : null);
-    });
+    const bookedInput = row.querySelector('[data-role="claim-booked-input"]');
+    if (bookedInput && !bookedInput.disabled) {
+      bookedInput.addEventListener("change", () => {
+        setClaim(key, bookedInput.checked ? "booked" : null);
+      });
+    }
+    const doneInput = row.querySelector('[data-role="claim-done-input"]');
+    if (doneInput) {
+      // Done changes which list a card belongs to (main vs. Completed), so
+      // this re-runs the full render once the save round-trips — unlike
+      // booked-in, which only ever changes a checkbox, not membership.
+      doneInput.addEventListener("change", async () => {
+        await setClaim(doneKey(key), doneInput.checked ? "done" : null);
+        renderList();
+      });
+    }
   }
 
   // Screenshot-read overrides (who/location/note) — shared across devices
@@ -1310,12 +1341,21 @@
   const replyCount = quotes.filter(q => q.source === "client-reply").length;
   const realCount = quotes.filter(q => !q.example).length;
 
-  statRow.innerHTML = `
-    <div class="stat"><span class="n">${quotes.filter(q => !q.bookedDate).length}</span><span class="label">Awaiting a booking</span></div>
-    <div class="stat"><span class="n">${approvedCount}</span><span class="label">Invoice2go approvals</span></div>
-    <div class="stat"><span class="n">${replyCount}</span><span class="label">Client "go ahead" replies</span></div>
-    <div class="stat"><span class="n">${realCount}</span><span class="label">From your real inbox</span></div>
-  `;
+  // Re-run whenever claims load/change, since "Awaiting a booking" and
+  // "Completed" depend on the done state synced from the KV store, not
+  // just the static quote data.
+  function renderStats() {
+    const doneCount = quotes.filter(isDone).length;
+    const awaitingCount = quotes.filter(q => !q.bookedDate && !isDone(q)).length;
+    statRow.innerHTML = `
+      <div class="stat"><span class="n">${awaitingCount}</span><span class="label">Awaiting a booking</span></div>
+      <div class="stat"><span class="n">${approvedCount}</span><span class="label">Invoice2go approvals</span></div>
+      <div class="stat"><span class="n">${replyCount}</span><span class="label">Client "go ahead" replies</span></div>
+      <div class="stat"><span class="n">${realCount}</span><span class="label">From your real inbox</span></div>
+      <div class="stat"><span class="n">${doneCount}</span><span class="label">Completed</span></div>
+    `;
+  }
+  renderStats();
 
   // Colours come straight from each job's Google Calendar event (colorId) —
   // whichever colour you've booked it under on the calendar shows up here.
@@ -1401,6 +1441,10 @@
         <label class="claim-pill"${quote.bookedDate ? ' title="Confirmed via the daily calendar scan"' : ""}>
           <input type="checkbox" data-role="claim-booked-input" ${quote.bookedDate ? "checked disabled" : ""} />
           📅 Booked in
+        </label>
+        <label class="claim-pill done" title="Marks the job finished and moves it out of the main list, into Completed below">
+          <input type="checkbox" data-role="claim-done-input" />
+          ✅ Done
         </label>
       </div>
       <div class="detail" data-role="detail"></div>
@@ -1707,17 +1751,25 @@
   function renderList() {
     listEl.innerHTML = "";
 
-    const source = searchQuery ? quotes.filter(q => matchesSearch(q, searchQuery)) : quotes;
+    const matched = searchQuery ? quotes.filter(q => matchesSearch(q, searchQuery)) : quotes;
 
-    if (searchQuery && source.length === 0) {
+    if (searchQuery && matched.length === 0) {
       const empty = document.createElement("p");
       empty.className = "meta";
       empty.style.margin = "20px 0";
       empty.textContent = `No jobs match "${searchQuery}".`;
       listEl.appendChild(empty);
       applyClaimsToCards();
+      renderStats();
       return;
     }
+
+    // Done jobs are pulled out of the main list entirely (awaiting-booking
+    // count, weekly sections, all of it) and rendered in their own
+    // collapsed section at the end instead — ticking "Done" is meant to get
+    // a finished job out of the way, not just decorate its card.
+    const doneItems = matched.filter(isDone);
+    const source = matched.filter(q => !isDone(q));
 
     const grouping = groupToggle.checked;
     const unbooked = source.filter(q => !q.bookedDate);
@@ -1775,7 +1827,22 @@
       listEl.appendChild(details);
       w.items.slice().sort(byQuoteNumber).forEach(q => body.appendChild(buildCard(q)));
     });
+
+    if (doneItems.length > 0) {
+      const doneDetails = document.createElement("details");
+      doneDetails.className = "week";
+      const doneSummary = document.createElement("summary");
+      doneSummary.innerHTML = `✅ Completed <span class="n">· ${doneItems.length} ${doneItems.length === 1 ? "job" : "jobs"}</span>`;
+      doneDetails.appendChild(doneSummary);
+      const doneBody = document.createElement("div");
+      doneBody.className = "week-body";
+      doneDetails.appendChild(doneBody);
+      listEl.appendChild(doneDetails);
+      doneItems.slice().sort(byQuoteNumber).forEach(q => doneBody.appendChild(buildCard(q)));
+    }
+
     applyClaimsToCards();
+    renderStats();
   }
 
   renderList();

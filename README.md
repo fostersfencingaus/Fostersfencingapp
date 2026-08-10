@@ -15,6 +15,15 @@ Every enquiry has two checkboxes, **Tim** and **David**, so whoever's picking it
 
 - **`demo/index.html`** — Home. A landing page linking to both of the above.
 
+## Shopping list
+
+- **`demo/shopping-list.html`** — a shared shopping list, no login required.
+  Add an item, tap it to tick it off (and tap again to un-tick), and it
+  syncs live to everyone else with the page open. Ticked items auto-remove
+  after 48 continuous hours. Backed by a small [Supabase](https://supabase.com)
+  table instead of the hardcoded/Vercel-KV data the pages above use — see
+  `docs/shopping-list-setup.md` for setup.
+
 ## Installing it as an app (beta)
 
 The `demo/` folder is set up as an installable PWA (progressive web app) —

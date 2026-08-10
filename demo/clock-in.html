@@ -137,6 +137,8 @@
   table.history th, table.history td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line); }
   table.history th { color: var(--steel); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.03em; }
   table.history td.hours { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+  table.history a.time-link { color: var(--accent); text-decoration: none; }
+  table.history a.time-link:hover { text-decoration: underline; }
   .history-total { text-align: right; font-size: 13px; color: var(--ink-soft); margin-top: 4px; }
   .empty-note { color: var(--steel); font-size: 13.5px; text-align: center; padding: 8px 0; }
 
@@ -356,6 +358,12 @@ function fmtHours(h) {
   const mins = Math.round((h - hrs) * 60);
   return `${hrs}h ${String(mins).padStart(2, "0")}m`;
 }
+function timeLink(iso, lat, lng) {
+  const t = fmtTime(iso);
+  if (!iso) return t;
+  if (lat === null || lat === undefined || lng === null || lng === undefined) return t;
+  return `<a class="time-link" href="https://www.google.com/maps?q=${lat},${lng}" target="_blank" rel="noopener">${t}</a>`;
+}
 
 async function refreshOpenShift(userId) {
   const { data, error } = await supabase
@@ -388,7 +396,7 @@ function renderClockButtons() {
 async function refreshHistory(userId) {
   const { data, error } = await supabase
     .from("time_entries")
-    .select("id, clock_in_at, clock_out_at, hours_worked")
+    .select("id, clock_in_at, clock_in_lat, clock_in_lng, clock_out_at, clock_out_lat, clock_out_lng, hours_worked")
     .eq("worker_id", userId)
     .order("clock_in_at", { ascending: false })
     .limit(10);
@@ -407,8 +415,8 @@ async function refreshHistory(userId) {
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${fmtDate(row.clock_in_at)}</td>
-      <td>${fmtTime(row.clock_in_at)}</td>
-      <td>${row.clock_out_at ? fmtTime(row.clock_out_at) : "—"}</td>
+      <td>${timeLink(row.clock_in_at, row.clock_in_lat, row.clock_in_lng)}</td>
+      <td>${row.clock_out_at ? timeLink(row.clock_out_at, row.clock_out_lat, row.clock_out_lng) : "—"}</td>
       <td class="hours">${fmtHours(row.hours_worked)}</td>
     `;
     historyBody.appendChild(tr);

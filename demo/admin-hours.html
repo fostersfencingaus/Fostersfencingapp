@@ -84,14 +84,20 @@
   .msg[hidden] { display: none; }
 
   /* --- dashboard screen --- */
-  .toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: end; margin-bottom: 18px; }
-  .field { display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; color: var(--ink-soft); }
-  .field select, .field input {
-    padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--paper-raised);
-    color: var(--ink); font-size: 14px;
-  }
+  .toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 18px; }
   .toolbar .spacer { flex: 1; }
   .signout-link { background: none; border: none; color: var(--steel); font-size: 12.5px; text-decoration: underline; cursor: pointer; padding: 8px 0; }
+
+  .worker-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .worker-chip {
+    appearance: none; border: 1px solid var(--line); background: var(--paper-raised); border-radius: 999px;
+    padding: 9px 16px; font-size: 13.5px; font-weight: 600; color: var(--ink); cursor: pointer;
+    display: flex; align-items: center; gap: 8px; font-family: inherit;
+  }
+  .worker-chip:hover { border-color: var(--accent); }
+  .worker-chip .hrs { color: var(--ink-soft); font-weight: 500; font-variant-numeric: tabular-nums; }
+  .worker-chip.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .worker-chip.active .hrs { color: rgba(255, 255, 255, 0.85); }
 
   .summary-row { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 18px; }
   .summary-card { background: var(--paper-raised); border: 1px solid var(--line); border-radius: 14px; padding: 14px 18px; box-shadow: var(--shadow); min-width: 140px; }
@@ -108,6 +114,22 @@
   table.hours a.loc-link:hover { text-decoration: underline; }
   .table-wrap { overflow-x: auto; }
   .empty-note { color: var(--steel); font-size: 13.5px; text-align: center; padding: 20px 0; }
+
+  details.week { border-top: 1px dashed var(--line); padding-top: 16px; margin-top: 10px; }
+  details.week + details.week { margin-top: 18px; }
+  details.week summary {
+    cursor: pointer; list-style: none; display: flex; align-items: center; gap: 10px;
+    font-size: 13px; font-weight: 600; color: var(--steel); text-transform: uppercase;
+    letter-spacing: 0.05em; padding: 2px 0;
+  }
+  details.week summary::-webkit-details-marker { display: none; }
+  details.week summary::before { content: "▸"; font-size: 11px; color: var(--gold); transition: transform 0.15s ease; }
+  details.week[open] summary::before { transform: rotate(90deg); }
+  details.week summary .n {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace;
+    color: var(--ink-soft); font-weight: 500; text-transform: none; letter-spacing: 0;
+  }
+  details.week .week-body { padding-top: 16px; }
 
   footer.page { text-align: center; font-size: 12px; color: var(--steel); padding: 24px 0 10px; }
 </style>
@@ -147,22 +169,7 @@
 <!-- Dashboard screen -->
 <section id="screenDashboard" class="screen" hidden>
   <div class="toolbar">
-    <div class="field">
-      <label for="workerFilter">Worker</label>
-      <select id="workerFilter"><option value="">All workers</option></select>
-    </div>
-    <div class="field">
-      <label for="fromDate">From</label>
-      <input type="date" id="fromDate" />
-    </div>
-    <div class="field">
-      <label for="toDate">To</label>
-      <input type="date" id="toDate" />
-    </div>
-    <div class="field">
-      <label>&nbsp;</label>
-      <button type="button" class="btn btn-ghost" id="refreshBtn">Refresh</button>
-    </div>
+    <div class="worker-chips" id="workerChips"></div>
     <div class="spacer"></div>
     <button type="button" class="signout-link" id="signOutBtn">Sign out</button>
   </div>
@@ -171,24 +178,7 @@
 
   <div class="summary-row" id="summaryRow"></div>
 
-  <div class="card">
-    <div class="table-wrap">
-      <table class="hours">
-        <thead>
-          <tr>
-            <th>Worker</th>
-            <th>Clock in</th>
-            <th>Location</th>
-            <th>Clock out</th>
-            <th>Location</th>
-            <th class="hours">Hours</th>
-          </tr>
-        </thead>
-        <tbody id="hoursBody"></tbody>
-      </table>
-    </div>
-    <p class="empty-note" id="hoursEmpty" hidden>No shifts in this range.</p>
-  </div>
+  <div id="weeksContainer"></div>
 </section>
 
 </div>
@@ -218,14 +208,10 @@ const pinInput = document.getElementById("pinInput");
 const pinSubmitBtn = document.getElementById("pinSubmitBtn");
 const loginError = document.getElementById("loginError");
 const signOutBtn = document.getElementById("signOutBtn");
-const workerFilter = document.getElementById("workerFilter");
-const fromDate = document.getElementById("fromDate");
-const toDate = document.getElementById("toDate");
-const refreshBtn = document.getElementById("refreshBtn");
+const workerChips = document.getElementById("workerChips");
 const dashError = document.getElementById("dashError");
 const summaryRow = document.getElementById("summaryRow");
-const hoursBody = document.getElementById("hoursBody");
-const hoursEmpty = document.getElementById("hoursEmpty");
+const weeksContainer = document.getElementById("weeksContainer");
 
 function showScreen(screen) {
   for (const s of [screenLogin, screenDashboard]) s.hidden = s !== screen;
@@ -246,8 +232,32 @@ function locLink(lat, lng) {
   const url = `https://www.google.com/maps?q=${lat},${lng}`;
   return `<a class="loc-link" href="${url}" target="_blank" rel="noopener">Map ↗</a>`;
 }
-function isoDateOnly(d) {
-  return d.toISOString().slice(0, 10);
+
+// Pay weeks run Friday–Thursday. Deliberately uses the browser's LOCAL date
+// parts (not UTC) — everyone using this page is in the same timezone as the
+// jobsite, so this avoids an early-morning clock-in near a UTC day boundary
+// landing in the wrong week.
+function weekInfoFor(date) {
+  const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const dow = date.getDay();
+  const daysSinceFriday = (dow - 5 + 7) % 7;
+  const friday = new Date(date.getFullYear(), date.getMonth(), date.getDate() - daysSinceFriday);
+  const thursday = new Date(friday.getFullYear(), friday.getMonth(), friday.getDate() + 6);
+  const sameMonth = friday.getMonth() === thursday.getMonth();
+  const start = sameMonth ? `${friday.getDate()}` : `${friday.getDate()} ${monthNames[friday.getMonth()]}`;
+  const end = `${thursday.getDate()} ${monthNames[thursday.getMonth()]} ${thursday.getFullYear()}`;
+  const key = `${friday.getFullYear()}-${String(friday.getMonth() + 1).padStart(2, "0")}-${String(friday.getDate()).padStart(2, "0")}`;
+  return { key, friday, label: `Pay week ${start}–${end}` };
+}
+
+function groupByWeek(entries) {
+  const weeks = {};
+  entries.forEach((e) => {
+    const info = weekInfoFor(new Date(e.clock_in_at));
+    if (!weeks[info.key]) weeks[info.key] = { key: info.key, label: info.label, friday: info.friday, items: [] };
+    weeks[info.key].items.push(e);
+  });
+  return Object.values(weeks).sort((a, b) => b.friday - a.friday);
 }
 
 async function signIn() {
@@ -279,6 +289,8 @@ signOutBtn.addEventListener("click", async () => {
 });
 
 let workers = [];
+let allEntries = [];
+let selectedWorkerId = null; // null = all workers
 
 async function enterDashboard() {
   const { data: { session } } = await supabase.auth.getSession();
@@ -298,17 +310,8 @@ async function enterDashboard() {
     return;
   }
 
-  // Default range: last 14 days.
-  const today = new Date();
-  const start = new Date(today);
-  start.setDate(start.getDate() - 13);
-  fromDate.value = isoDateOnly(start);
-  toDate.value = isoDateOnly(today);
-
   const { data: profileRows } = await supabase.from("profiles").select("id, name").order("name");
   workers = profileRows || [];
-  workerFilter.innerHTML = '<option value="">All workers</option>' +
-    workers.map((w) => `<option value="${w.id}">${w.name}</option>`).join("");
 
   showScreen(screenDashboard);
   await loadHours();
@@ -316,76 +319,131 @@ async function enterDashboard() {
 
 async function loadHours() {
   dashError.hidden = true;
-  let query = supabase
+  const { data, error } = await supabase
     .from("time_entries")
-    .select("id, clock_in_at, clock_in_lat, clock_in_lng, clock_out_at, clock_out_lat, clock_out_lng, hours_worked, profiles(name)")
+    .select("id, worker_id, clock_in_at, clock_in_lat, clock_in_lng, clock_out_at, clock_out_lat, clock_out_lng, hours_worked, profiles(name)")
     .order("clock_in_at", { ascending: false });
 
-  if (workerFilter.value) query = query.eq("worker_id", workerFilter.value);
-  if (fromDate.value) query = query.gte("clock_in_at", `${fromDate.value}T00:00:00`);
-  if (toDate.value) query = query.lte("clock_in_at", `${toDate.value}T23:59:59`);
-
-  const { data, error } = await query;
   if (error) {
     dashError.textContent = error.message || "Couldn't load hours.";
     dashError.hidden = false;
     return;
   }
 
-  renderSummary(data || []);
-  renderTable(data || []);
+  allEntries = data || [];
+  renderSummary(allEntries);
+  renderWorkerChips(allEntries);
+  renderWeeks(applyWorkerFilter(allEntries));
 }
 
-function renderSummary(rows) {
-  const totalsByWorker = new Map();
-  let openCount = 0;
-  for (const row of rows) {
-    const name = row.profiles?.name || "Unknown";
-    const hrs = Number(row.hours_worked || 0);
-    totalsByWorker.set(name, (totalsByWorker.get(name) || 0) + hrs);
-    if (!row.clock_out_at) openCount += 1;
-  }
+function applyWorkerFilter(entries) {
+  return selectedWorkerId ? entries.filter((e) => e.worker_id === selectedWorkerId) : entries;
+}
 
-  summaryRow.innerHTML = "";
-  const openCard = document.createElement("div");
-  openCard.className = "summary-card open";
-  openCard.innerHTML = `<div class="label">Currently clocked in</div><div class="value">${openCount}</div>`;
-  summaryRow.appendChild(openCard);
+function renderSummary(entries) {
+  const openCount = entries.filter((e) => !e.clock_out_at).length;
+  summaryRow.innerHTML = `<div class="summary-card open"><div class="label">Currently clocked in</div><div class="value">${openCount}</div></div>`;
+}
 
-  for (const [name, hrs] of [...totalsByWorker.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
+function renderWorkerChips(entries) {
+  const totals = new Map(workers.map((w) => [w.id, 0]));
+  entries.forEach((e) => {
+    if (!totals.has(e.worker_id)) totals.set(e.worker_id, 0);
+    totals.set(e.worker_id, totals.get(e.worker_id) + Number(e.hours_worked || 0));
+  });
+  const allTotal = [...totals.values()].reduce((a, b) => a + b, 0);
+
+  workerChips.innerHTML = "";
+
+  const allChip = document.createElement("button");
+  allChip.type = "button";
+  allChip.className = "worker-chip" + (selectedWorkerId === null ? " active" : "");
+  allChip.innerHTML = `All workers <span class="hrs">${fmtHours(allTotal)}</span>`;
+  allChip.addEventListener("click", () => {
+    selectedWorkerId = null;
+    renderWorkerChips(allEntries);
+    renderWeeks(applyWorkerFilter(allEntries));
+  });
+  workerChips.appendChild(allChip);
+
+  workers.forEach((w) => {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "worker-chip" + (selectedWorkerId === w.id ? " active" : "");
+    chip.innerHTML = `${w.name} <span class="hrs">${fmtHours(totals.get(w.id) || 0)}</span>`;
+    chip.addEventListener("click", () => {
+      selectedWorkerId = w.id;
+      renderWorkerChips(allEntries);
+      renderWeeks(applyWorkerFilter(allEntries));
+    });
+    workerChips.appendChild(chip);
+  });
+}
+
+function buildWeekSection(label, items, isOpen) {
+  const totalHours = items.reduce((sum, r) => sum + Number(r.hours_worked || 0), 0);
+
+  const details = document.createElement("details");
+  details.className = "week";
+  details.open = isOpen;
+
+  const summary = document.createElement("summary");
+  const heading = isOpen ? `This week · ${label.replace("Pay week ", "")}` : label;
+  summary.innerHTML = `${heading} <span class="n">· ${items.length} ${items.length === 1 ? "shift" : "shifts"} · ${fmtHours(totalHours)}</span>`;
+  details.appendChild(summary);
+
+  const body = document.createElement("div");
+  body.className = "week-body";
+
+  if (items.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "empty-note";
+    empty.style.margin = "0";
+    empty.textContent = "No shifts this week.";
+    body.appendChild(empty);
+  } else {
     const card = document.createElement("div");
-    card.className = "summary-card";
-    card.innerHTML = `<div class="label">${name}</div><div class="value">${fmtHours(hrs)}</div>`;
-    summaryRow.appendChild(card);
+    card.className = "card";
+    const tableWrap = document.createElement("div");
+    tableWrap.className = "table-wrap";
+    const table = document.createElement("table");
+    table.className = "hours";
+    table.innerHTML = `<thead><tr><th>Worker</th><th>Clock in</th><th>Location</th><th>Clock out</th><th>Location</th><th class="hours">Hours</th></tr></thead><tbody></tbody>`;
+    const tbody = table.querySelector("tbody");
+    items.slice().sort((a, b) => new Date(b.clock_in_at) - new Date(a.clock_in_at)).forEach((row) => {
+      const tr = document.createElement("tr");
+      if (!row.clock_out_at) tr.className = "open-row";
+      tr.innerHTML = `
+        <td>${row.profiles?.name || "Unknown"}</td>
+        <td>${fmtDateTime(row.clock_in_at)}</td>
+        <td>${locLink(row.clock_in_lat, row.clock_in_lng)}</td>
+        <td>${row.clock_out_at ? fmtDateTime(row.clock_out_at) : "still clocked in"}</td>
+        <td>${row.clock_out_at ? locLink(row.clock_out_lat, row.clock_out_lng) : "—"}</td>
+        <td class="hours">${fmtHours(row.hours_worked)}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+    tableWrap.appendChild(table);
+    card.appendChild(tableWrap);
+    body.appendChild(card);
   }
+
+  details.appendChild(body);
+  return details;
 }
 
-function renderTable(rows) {
-  hoursBody.innerHTML = "";
-  if (rows.length === 0) {
-    hoursEmpty.hidden = false;
-    return;
-  }
-  hoursEmpty.hidden = true;
-  for (const row of rows) {
-    const tr = document.createElement("tr");
-    if (!row.clock_out_at) tr.className = "open-row";
-    tr.innerHTML = `
-      <td>${row.profiles?.name || "Unknown"}</td>
-      <td>${fmtDateTime(row.clock_in_at)}</td>
-      <td>${locLink(row.clock_in_lat, row.clock_in_lng)}</td>
-      <td>${row.clock_out_at ? fmtDateTime(row.clock_out_at) : "still clocked in"}</td>
-      <td>${locLink(row.clock_out_lat, row.clock_out_lng)}</td>
-      <td class="hours">${fmtHours(row.hours_worked)}</td>
-    `;
-    hoursBody.appendChild(tr);
-  }
-}
+function renderWeeks(entries) {
+  weeksContainer.innerHTML = "";
 
-workerFilter.addEventListener("change", loadHours);
-fromDate.addEventListener("change", loadHours);
-toDate.addEventListener("change", loadHours);
-refreshBtn.addEventListener("click", loadHours);
+  const weeks = groupByWeek(entries);
+  const thisWeekInfo = weekInfoFor(new Date());
+  const hasThisWeekData = weeks.length > 0 && weeks[0].key === thisWeekInfo.key;
+  const thisWeekItems = hasThisWeekData ? weeks[0].items : [];
+  const olderWeeks = hasThisWeekData ? weeks.slice(1) : weeks;
+
+  weeksContainer.appendChild(buildWeekSection(thisWeekInfo.label, thisWeekItems, true));
+  olderWeeks.forEach((w) => weeksContainer.appendChild(buildWeekSection(w.label, w.items, false)));
+}
 
 // Light auto-refresh so the "currently clocked in" view stays live.
 setInterval(() => { if (!screenDashboard.hidden) loadHours(); }, 60000);

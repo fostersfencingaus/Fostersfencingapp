@@ -119,22 +119,25 @@
   .tabnav {
     display: flex;
     flex-wrap: wrap;
-    gap: 4px 14px;
-    font-size: 13px;
+    gap: 8px;
     margin-bottom: 20px;
   }
   .tabnav a {
-    color: var(--ink-soft);
+    font-size: 13px;
+    font-weight: 600;
+    padding: 7px 14px;
+    border-radius: 100px;
     text-decoration: none;
-    padding: 4px 0;
-    border-bottom: 2px solid transparent;
+    border: 1px solid var(--line);
+    color: var(--ink-soft);
   }
   .tabnav a.active {
-    color: var(--accent);
-    border-bottom-color: var(--accent);
-    font-weight: 600;
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
   }
-  .tabnav a:hover {
+  .tabnav a:hover:not(.active) {
+    border-color: var(--accent);
     color: var(--accent);
   }
 

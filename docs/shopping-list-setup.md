@@ -89,14 +89,14 @@ gets its own backend rather than being bolted onto the KV pattern.
    shows a "Not connected to Supabase yet" notice and disables adding
    items — it fails closed rather than throwing errors.
 
-5. **Deploy.** No `vercel.json` changes are needed — the page is reachable
-   directly at `/demo/shopping-list.html` on whatever the deployment's base
-   URL is, the same way every other file under `demo/` already is. It's
-   deliberately not wired into `vercel.json`'s pretty-URL rewrites,
-   `manifest.json`, or `sw.js`'s offline precache list yet, to keep this
-   feature's branch from touching any existing page or shared config —
-   add those later if you want a `/shopping-list.html` short URL or offline
-   precaching for it.
+5. **Deploy.** The page has a pretty URL (`/shopping-list.html`, via
+   `vercel.json`) and its own installable identity — `manifest-shopping-list.json`
+   names it "Fosters Fencing Shopping List" ("FF Shopping List" as an
+   installed app), separately from the main "Fosters Fencing" app the other
+   pages install as. It's linked from the Home page
+   (`demo/index.html`)'s app card grid. It isn't in `sw.js`'s offline
+   precache list, so it won't work offline the way the other pages do —
+   add it there too if that matters for this page.
 
 ## How it behaves
 

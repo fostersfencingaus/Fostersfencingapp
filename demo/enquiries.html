@@ -462,7 +462,7 @@
 <div class="stat-row" id="statRow"></div>
 
 <div class="search-row">
-  <input type="search" id="searchInput" class="search-input" placeholder="Search by name or suburb…" />
+  <input type="search" id="searchInput" class="search-input" placeholder="Search by name, suburb, or phone…" />
 </div>
 
 <div class="toolbar">
@@ -4655,12 +4655,19 @@
       .replace(/>/g, "&gt;");
   }
 
-  // Matches the search box against name or suburb (the raw, pre-normalized
-  // location text, so "Success, Cockburn" still matches typing "Cockburn").
+  // Digits only, so phone search doesn't care how either side is
+  // formatted -- "0412 345 678" and "0412345678" are the same search.
+  function phoneDigits(str) { return (str || "").replace(/\D/g, ""); }
+
+  // Matches the search box against name, suburb (the raw, pre-normalized
+  // location text, so "Success, Cockburn" still matches typing "Cockburn"),
+  // or phone number (digits-only comparison, formatting-agnostic).
   function matchesSearch(item, query) {
     const q = query.toLowerCase();
+    const qDigits = phoneDigits(query);
     return (item.who && item.who.toLowerCase().includes(q)) ||
-           (item.raw && item.raw.toLowerCase().includes(q));
+           (item.raw && item.raw.toLowerCase().includes(q)) ||
+           (qDigits.length >= 3 && item.phone && phoneDigits(item.phone).includes(qDigits));
   }
 
   let viewMode = "suburb";

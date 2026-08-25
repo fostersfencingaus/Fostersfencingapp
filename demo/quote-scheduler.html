@@ -663,7 +663,7 @@
 <div class="stat-row" id="statRow"></div>
 
 <div class="search-row">
-  <input type="search" id="searchInput" class="search-input" placeholder="Search by quote number or name…" />
+  <input type="search" id="searchInput" class="search-input" placeholder="Search by quote number, name, suburb, or phone…" />
 </div>
 
 <div class="legend" id="teamLegend"></div>
@@ -2275,11 +2275,22 @@
   const searchInput = document.getElementById("searchInput");
   let searchQuery = "";
 
-  // Matches the search box against quote number or client name.
+  // Digits only, so phone search doesn't care how either side is
+  // formatted -- "0412 345 678" and "0412345678" are the same search.
+  function phoneDigits(str) { return (str || "").replace(/\D/g, ""); }
+
+  // Matches the search box against quote number, client name, suburb
+  // (the location field), or phone number. There's no dedicated phone
+  // field here -- numbers live inline in "who" (e.g. "Matt Mccaughey —
+  // 0429 120 304 — mmccaughey@bigpond.com") -- so the digits-only compare
+  // runs against the whole "who" string.
   function matchesSearch(quote, query) {
     const q = query.toLowerCase();
+    const qDigits = phoneDigits(query);
     return (quote.id && quote.id.toLowerCase().includes(q)) ||
-           (quote.who && quote.who.toLowerCase().includes(q));
+           (quote.who && quote.who.toLowerCase().includes(q)) ||
+           (quote.location && quote.location.toLowerCase().includes(q)) ||
+           (qDigits.length >= 3 && quote.who && phoneDigits(quote.who).includes(qDigits));
   }
 
   // "This week" is anchored to today's actual Sat–Fri window, not just

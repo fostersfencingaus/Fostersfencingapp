@@ -712,6 +712,7 @@
       if (!res.ok) return;
       const data = await res.json();
       claimsState = data.claims || {};
+      await clearStaleDoneClaims();
       if (!claimsLoadedOnce) {
         // The very first renderList() on page load runs before this
         // resolves, so it can't yet know which quotes are Done/deleted --
@@ -752,6 +753,17 @@
   // still just "is this key claimed, and as what".
   function doneKey(id) { return `${id}::done`; }
   function isDone(quote) { return claimsState[doneKey(quote.id)] === "done"; }
+
+  // "Done" is a personal "I've booked this in myself" placeholder for the
+  // stretch before the next calendar scan confirms it — not a permanent
+  // record. Once a quote picks up a bookedDate (the scan found the real
+  // calendar event), any leftover "Done" claim on it is stale and gets
+  // cleared automatically, same as if you'd unticked it yourself.
+  async function clearStaleDoneClaims() {
+    const stale = quotes.filter(q => q.bookedDate && isDone(q));
+    if (stale.length === 0) return;
+    await Promise.all(stale.map(q => setClaim(doneKey(q.id), null)));
+  }
 
   // Swipe-to-delete: "::deleted" stores the ISO timestamp of the swipe
   // itself, not a fixed keyword, so the client can compute a 24h auto-purge
@@ -1829,7 +1841,7 @@
           <input type="checkbox" data-role="claim-booked-input" ${quote.bookedDate ? "checked disabled" : ""} />
           📅 Booked in
         </label>
-        <label class="claim-pill done" title="Marks the job as manually booked in -- stays in place, ticked, until the next update">
+        <label class="claim-pill done" title="Marks the job as manually booked in -- clears itself once the next calendar scan confirms it">
           <input type="checkbox" data-role="claim-done-input" />
           ✅ Done
         </label>

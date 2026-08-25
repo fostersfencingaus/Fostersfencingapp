@@ -239,8 +239,12 @@ const CONFIG = {
 };
 // ---------------------------------------------------------------------------
 
+// persistSession is deliberately off here (unlike the worker Clock In page) —
+// this view shows everyone's hours, locations, and pay rates, so it should
+// always ask for the PIN again rather than staying signed in on a shared
+// device between visits.
 const supabase = createClient(CONFIG.supabaseUrl, CONFIG.supabaseAnonKey, {
-  auth: { storageKey: "ff-admin-auth", persistSession: true, autoRefreshToken: true }
+  auth: { storageKey: "ff-admin-auth", persistSession: false, autoRefreshToken: true }
 });
 
 const screenLogin = document.getElementById("screenLogin");

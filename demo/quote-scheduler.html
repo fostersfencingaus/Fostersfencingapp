@@ -810,12 +810,11 @@
     }
     const doneInput = row.querySelector('[data-role="claim-done-input"]');
     if (doneInput) {
-      // Done changes which list a card belongs to (main vs. Completed), so
-      // this re-runs the full render once the save round-trips — unlike
-      // booked-in, which only ever changes a checkbox, not membership.
+      // Done stays put on its card (no list membership change), so just
+      // persist it and refresh the "Awaiting/Completed" counts.
       doneInput.addEventListener("change", async () => {
         await setClaim(doneKey(key), doneInput.checked ? "done" : null);
-        renderList();
+        renderStats();
       });
     }
   }
@@ -1817,7 +1816,7 @@
           <input type="checkbox" data-role="claim-booked-input" ${quote.bookedDate ? "checked disabled" : ""} />
           📅 Booked in
         </label>
-        <label class="claim-pill done" title="Marks the job finished and moves it out of the main list, into Completed below">
+        <label class="claim-pill done" title="Marks the job as manually booked in -- stays in place, ticked, until the next update">
           <input type="checkbox" data-role="claim-done-input" />
           ✅ Done
         </label>
@@ -2288,15 +2287,12 @@
       return;
     }
 
-    // Swiped-deleted jobs are pulled out first (and win over "Done" if
-    // somehow both) into "Recently removed" below. Done jobs are pulled
-    // out of the main list entirely the same way (awaiting-booking count,
-    // weekly sections, all of it) into their own collapsed section —
-    // ticking "Done" is meant to get a finished job out of the way, not
-    // just decorate its card.
+    // Swiped-deleted jobs are pulled out first into "Recently removed"
+    // below. "Done" is just a checkbox on the card -- it stays put in its
+    // normal section (awaiting booking or its week) so ticking it is a
+    // quick "I've manually booked this in" marker, not a move.
     const removedItems = matched.filter(isDeleted);
-    const doneItems = matched.filter(q => !isDeleted(q) && isDone(q));
-    const source = matched.filter(q => !isDeleted(q) && !isDone(q));
+    const source = matched.filter(q => !isDeleted(q));
 
     const grouping = groupToggle.checked;
     const unbooked = source.filter(q => !q.bookedDate);
@@ -2354,19 +2350,6 @@
       listEl.appendChild(details);
       w.items.slice().sort(byQuoteNumber).forEach(q => body.appendChild(buildCard(q)));
     });
-
-    if (doneItems.length > 0) {
-      const doneDetails = document.createElement("details");
-      doneDetails.className = "week";
-      const doneSummary = document.createElement("summary");
-      doneSummary.innerHTML = `✅ Completed <span class="n">· ${doneItems.length} ${doneItems.length === 1 ? "job" : "jobs"}</span>`;
-      doneDetails.appendChild(doneSummary);
-      const doneBody = document.createElement("div");
-      doneBody.className = "week-body";
-      doneDetails.appendChild(doneBody);
-      listEl.appendChild(doneDetails);
-      doneItems.slice().sort(byQuoteNumber).forEach(q => doneBody.appendChild(buildCard(q)));
-    }
 
     if (removedItems.length > 0) {
       const removedDetails = document.createElement("details");

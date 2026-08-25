@@ -15,13 +15,24 @@ off-calendar ahead of the next scan — once that scan finds the matching
 calendar event, the box switches over to the locked, calendar-confirmed
 state automatically.
 
-Next to it is a separate **✅ Done** checkbox, for marking a job fully
-finished. Unlike "Booked in", ticking "Done" is never calendar-confirmed
-or locked — it's a manual call only you make. It also behaves differently
-from every other checkbox on either page: ticking it moves the job out of
-the main list (out of "Awaiting a booking" and its weekly section) into a
-collapsed "✅ Completed" section at the bottom, so finished jobs stop
-cluttering the working list instead of just sitting there ticked.
+Next to it is a separate **✅ Done** checkbox — a personal "I've booked
+this in myself" placeholder for the stretch before the next calendar scan
+catches up. Tick it and the card just stays put, ticked, wherever it
+already sits (no move to a separate section). It's the one checkbox that
+clears itself automatically: once that quote picks up a `bookedDate` (the
+scan found the matching calendar event), the "Done" tick is stale — it's
+been superseded by a real confirmed booking — so it's cleared for you the
+next time the page polls, the same as if you'd unticked it yourself.
+
+Every card can also be **swiped left** to remove it — for the odd
+approval that comes through wrong (a duplicate, a stray test entry, that
+kind of thing) rather than a real job. Swiping reveals a red delete
+button underneath; tapping *that* is the actual delete, so a careless
+swipe on its own can't remove anything. It's a soft delete: the job moves
+into a collapsed "🗑 Recently removed" section with an **Undo** button,
+and only disappears for good if it sits there untouched for 24 hours —
+undoing it any time before then puts it straight back in the main list,
+same as it was.
 
 `demo/quote-scheduler.html` also syncs screenshot-read details (who,
 location, note) the same way — applying a screenshot read on one device
@@ -40,9 +51,12 @@ one device.
   this) is connected to the project, on the Free plan.
 - **`api/claims.js`** — reads/writes which enquiries are claimed by Tim or
   David, which not-yet-calendar-confirmed jobs are manually ticked
-  "Booked in", and which jobs are ticked "Done" (stored under a separate
-  `<quoteId>::done` key in the same `claims:quotes` entry, so it's one
-  store, not a second database).
+  "Booked in", which jobs are ticked "Done" (stored under a separate
+  `<quoteId>::done` key), and which jobs have been swipe-deleted (a
+  `<quoteId>::deleted` key holding the ISO timestamp of the swipe, not a
+  fixed keyword — that's what the 24h countdown and exact-state "Undo"
+  are computed from). All under the same `claims:quotes` entry, so it's
+  one store, not three separate databases.
 - **`api/overrides.js`** — reads/writes the screenshot-read overrides for
   Approved Jobs, in the same KV database under a different key.
 - Both pages poll their endpoint every 15 seconds, and immediately after
@@ -63,10 +77,23 @@ another, including via the periodic poll (not just on page load).
 - On Approved Jobs, **📅 Booked in** is a single box: calendar-confirmed
   jobs show it locked checked; everything else is a plain manual toggle,
   synced the same way.
-- **✅ Done** is always a plain manual toggle (never locked) and, unlike
-  every other checkbox on either page, ticking it removes the job from the
-  main list — it reappears in the collapsed "Completed" section instead.
-  Unticking it (from the Completed section) puts it straight back.
+- **✅ Done** is a manual toggle that stays on its card wherever it already
+  sits — it never moves the job to a separate section. It's also the one
+  checkbox that can untick itself: as soon as the quote gets a
+  `bookedDate` from a calendar scan, any "Done" tick on it is cleared
+  automatically (checked against the live data on every 15s poll), since
+  the manual placeholder is no longer needed once the real booking is
+  confirmed.
+- **Swipe-to-delete** works the same way membership-wise (out of the main
+  list, into its own collapsed section) but isn't a checkbox — swipe the
+  card left, then tap the red button that's revealed underneath to
+  confirm. It shows up in "Recently removed" with a live "auto-deletes in
+  Xh" countdown from 24h down to under 1h, and an **Undo** button. Once
+  that 24h passes, it's gone from the page for everyone, permanently
+  (visibility is computed purely from elapsed time, so this doesn't
+  depend on any scheduled job actually running — whoever's page happens
+  to be open does a light best-effort cleanup of the stored timestamp
+  every minute, but nothing relies on that succeeding).
 - Applying a screenshot read on Approved Jobs updates the card everywhere;
   "Revert" clears it everywhere too.
 - Updates aren't instant — each device checks for changes roughly every

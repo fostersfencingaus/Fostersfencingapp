@@ -19,6 +19,11 @@ A quote is ready to schedule once either of these turns up in the inbox:
 
 Quote numbers are consecutive from `QT10001`, which is what the demo uses to sort the list oldest-first. Entries are actually sorted by their `date` field (not by parsing the id), since not every entry has a `QT#####` id.
 
+4. **Booked directly on the calendar — no Invoice2go approval needed**
+   The calendar is the source of truth for "is this job booked," full stop. If a job has a confirmed Google Calendar event, it counts as booked whether or not an Invoice2go estimate was ever approved by email — jobs are sometimes quoted verbally, over the phone, or off-platform and booked straight in without ever going through Invoice2go. During a calendar sweep, don't only search for existing quote numbers: also check whether any calendar event's summary/description names a client who isn't yet in `quotes` or `current` at all (or is only sitting in `current` as an unconverted enquiry). If so, add them as a `quotes` entry with a non-`QT#####` id (same as rule 3) and the `bookedDate`/`location`/`colorId` pulled straight from the event — don't wait for an approval email that may never come.
+
+   Also watch for calendar descriptions that write the quote number glued to the `QT` prefix (e.g. `QT11159` as one token) instead of the usual bare number (`11159`) — a `fullText` search for just the bare digits won't match that as a substring, so it can silently slip past the sweep. When a known quote still shows no `bookedDate` after the bare-number sweep, it's worth a follow-up search including the `QT` prefix too before concluding there's no booking.
+
 ## Regex used for extraction
 
 ```

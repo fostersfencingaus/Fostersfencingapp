@@ -73,10 +73,21 @@ module.exports = async function handler(req, res) {
       res.status(400).json({ error: "Expected { list: 'enquiries'|'quotes', key: string, claimedBy }" });
       return;
     }
-    const validClaims = list === "quotes" ? ["booked", "done"] : ["tim", "david"];
-    if (claimedBy !== null && !validClaims.includes(claimedBy)) {
-      res.status(400).json({ error: `claimedBy must be ${validClaims.map(v => `"${v}"`).join(" or ")}, or null` });
-      return;
+    // A "::deleted" key stores the ISO timestamp the swipe-delete happened
+    // at (not a fixed keyword like "booked"/"done") so the client can compute
+    // the 24h auto-purge countdown and restore it exactly via "Undo".
+    const isDeletedKey = list === "quotes" && key.endsWith("::deleted");
+    if (isDeletedKey) {
+      if (claimedBy !== null && !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/.test(claimedBy)) {
+        res.status(400).json({ error: "claimedBy must be an ISO 8601 UTC timestamp, or null" });
+        return;
+      }
+    } else {
+      const validClaims = list === "quotes" ? ["booked", "done"] : ["tim", "david"];
+      if (claimedBy !== null && !validClaims.includes(claimedBy)) {
+        res.status(400).json({ error: `claimedBy must be ${validClaims.map(v => `"${v}"`).join(" or ")}, or null` });
+        return;
+      }
     }
     try {
       const claims = parseClaims(await kvGet(`claims:${list}`));

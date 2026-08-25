@@ -5,10 +5,14 @@ Two new pages, separate from Approved Jobs / New Enquiries:
 - **`demo/clock-in.html`** — each worker picks their name, enters their
   PIN, and taps **Clock In** / **Clock Out**. Their GPS location is
   recorded with each tap, and hours worked are calculated automatically
-  the moment they clock out. They only ever see their own shift history.
+  the moment they clock out. They only ever see their own shift history,
+  grouped into Friday–Thursday pay weeks, each with a pay breakdown and a
+  printable payslip. They can also hand-correct a shift or log one they
+  forgot to clock entirely (see "Editing or correcting a shift" below).
 - **`demo/admin-hours.html`** — the owner's view: every worker's shifts,
-  locations, and hours, with per-worker totals and a "currently clocked
-  in" count. Read-only by design (see "Editing or correcting a shift"
+  locations, hours, and (once you set their pay rate — see below) pay
+  breakdown and payslip, per Friday–Thursday pay week. Hours/locations
+  themselves are read-only here (see "Editing or correcting a shift"
   below).
 
 Both talk directly to a [Supabase](https://supabase.com) project (free
@@ -154,13 +158,51 @@ the files under `demo/`).
   in twice without clocking out first — including from two tabs/devices
   at once, which the UI also checks for but the database is the real
   backstop.
-- **Editing or correcting a shift:** intentionally not possible from
-  either page (only clocking out an *open* shift is allowed, and a
-  trigger blocks changing `clock_in_at`/location/`worker_id` after the
-  fact) — this keeps the timesheet trustworthy for payroll. If you ever
-  need to fix a mistaken entry, do it in the Supabase dashboard's Table
-  Editor (**Table Editor → time_entries**), which uses your project's
-  admin access and isn't subject to these RLS policies.
+- **Editing or correcting a shift:** each worker can edit their own
+  clock-in/clock-out times (fixing a forgotten tap, or a wrong time) from
+  the "Edit" button next to any shift on their own Clock In page, and can
+  log a shift they forgot to clock at all via "+ Log a shift you forgot
+  to clock". A worker can never reassign a shift to someone else — only
+  its times can change, `worker_id` is still locked. The moment a time is
+  hand-edited, the GPS location that went with it is cleared (a location
+  captured for the old time doesn't mean anything for the corrected one)
+  and the shift is flagged `edited_at`, shown as a small ✎ on both pages
+  so the owner can always tell a hand-corrected entry apart from a live
+  GPS one. There's still no *admin* write access from `admin-hours.html`
+  itself — if you (the owner) ever need to fix a worker's entry yourself,
+  do it in the Supabase dashboard's Table Editor (**Table Editor →
+  time_entries**), which uses your project's admin access and isn't
+  subject to these RLS policies.
+
+## Setting pay rates
+
+Each worker's hourly rate, tax rate, and superannuation rate live on their
+`profiles` row and aren't editable from either page — set them (or change
+them) directly in the Supabase dashboard's SQL Editor:
+
+```sql
+update public.profiles
+set hourly_rate = 50, tax_rate = 0.24, super_rate = 0.12
+where name = 'Calum';
+```
+
+`tax_rate` and `super_rate` are plain fractions (`0.24` = 24%). `super_rate`
+is calculated **on top of** gross pay (an extra employer cost), not
+deducted from the worker's pay. Once a worker's `hourly_rate` is set, both
+pages automatically show a gross/tax/net/super breakdown for every pay
+week, and a "View payslip" button that opens a printable payslip (each
+page's own "Print / Save as PDF" button uses the browser's normal print
+dialog — no extra software involved).
+
+**This is a straightforward estimate, not a compliant payroll system.**
+It multiplies hours × rate and applies the flat rates above — it doesn't
+apply real ATO withholding tax tables, doesn't handle overtime/leave
+loading/allowances, and doesn't do Single Touch Payroll (STP) reporting,
+which the ATO requires for actual employee payslips in Australia. Treat
+the numbers here as a same-page reference for you and your workers, not
+as the final payslip you issue or report from — for that, run actual
+figures through a proper STP-enabled payroll system (Xero Payroll,
+QuickBooks Payroll, etc.).
 
 ## Adding, removing, or re-PINing a worker later
 

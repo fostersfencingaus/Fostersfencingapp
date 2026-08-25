@@ -129,9 +129,29 @@
     font-family: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace;
     color: var(--ink-soft); font-weight: 500; text-transform: none; letter-spacing: 0;
   }
-  details.week .week-body { padding-top: 16px; }
+  details.week .week-body { padding-top: 16px; display: flex; flex-direction: column; gap: 14px; }
+
+  .edited-tag { color: var(--steel); font-style: italic; cursor: help; }
+
+  .pay-summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px 16px; }
+  .pay-summary div { display: flex; flex-direction: column; gap: 2px; }
+  .pay-summary .label { font-size: 11.5px; color: var(--steel); text-transform: uppercase; letter-spacing: 0.03em; }
+  .pay-summary .value { font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+  .payslip .payslip-header { text-align: center; margin-bottom: 14px; }
+  .payslip .payslip-header h2 { margin: 4px 0 0; font-size: 20px; }
+  .payslip-row { display: flex; justify-content: space-between; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--line); font-size: 14.5px; }
+  .payslip-row.total { font-weight: 700; font-size: 16px; border-bottom: none; padding-top: 12px; }
+  .payslip-note { color: var(--steel); font-size: 12px; margin: 16px 0 0; }
 
   footer.page { text-align: center; font-size: 12px; color: var(--steel); padding: 24px 0 10px; }
+
+  @media print {
+    body * { visibility: hidden; }
+    #payslipPrintArea, #payslipPrintArea * { visibility: visible; }
+    #payslipPrintArea { position: absolute; top: 0; left: 0; width: 100%; box-shadow: none; border: none; }
+    .no-print { display: none !important; }
+  }
 </style>
 </head>
 <body>
@@ -140,7 +160,7 @@
 
 <div class="page-pad">
 
-<nav class="tabnav">
+<nav class="tabnav no-print">
   <a href="index.html">Home</a>
   <a href="quote-scheduler.html">Approved Jobs</a>
   <a href="enquiries.html">New Enquiries</a>
@@ -148,7 +168,7 @@
   <a href="admin-hours.html" class="active">Admin</a>
 </nav>
 
-<header class="page">
+<header class="page no-print">
   <img class="badge-mark" src="assets/fosters-fencing-logo.jpg" alt="Fosters Fencing logo" />
   <div>
     <span class="eyebrow">Fosters Fencing</span>
@@ -181,9 +201,30 @@
   <div id="weeksContainer"></div>
 </section>
 
+<!-- Payslip screen -->
+<section id="screenPayslip" class="screen" hidden>
+  <button type="button" class="back-link no-print" id="payslipBackBtn" style="background:none;border:none;color:var(--steel);font-size:13.5px;cursor:pointer;padding:4px 0;margin-bottom:14px;">← Back to hours</button>
+  <div class="card payslip" id="payslipPrintArea">
+    <div class="payslip-header">
+      <span class="eyebrow">Fosters Fencing</span>
+      <h2>Payslip</h2>
+    </div>
+    <div class="payslip-row"><span>Employee</span><span id="psName"></span></div>
+    <div class="payslip-row"><span>Pay period</span><span id="psPeriod"></span></div>
+    <div class="payslip-row"><span>Hours worked</span><span id="psHours"></span></div>
+    <div class="payslip-row"><span>Hourly rate</span><span id="psRate"></span></div>
+    <div class="payslip-row"><span>Gross pay</span><span id="psGross"></span></div>
+    <div class="payslip-row"><span>Tax withheld (est.)</span><span id="psTax"></span></div>
+    <div class="payslip-row total"><span>Net pay</span><span id="psNet"></span></div>
+    <div class="payslip-row"><span>Superannuation (paid on top)</span><span id="psSuper"></span></div>
+    <p class="payslip-note">Generated <span id="psGenerated"></span>. Internal estimate for Fosters Fencing's own records — not a certified payroll or Fair Work-compliant payslip.</p>
+  </div>
+  <button type="button" class="btn btn-primary no-print" id="payslipPrintBtn" style="margin-top:16px;">Print / Save as PDF</button>
+</section>
+
 </div>
 
-<footer class="page">Fosters Fencing — Admin view. Read-only: edits happen in the Supabase dashboard.</footer>
+<footer class="page no-print">Fosters Fencing — Admin view. Hours/locations are read-only here: edits happen on each worker's own Clock In page (tracked as "edited"), or in the Supabase dashboard.</footer>
 
 <script type="module">
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -204,6 +245,7 @@ const supabase = createClient(CONFIG.supabaseUrl, CONFIG.supabaseAnonKey, {
 
 const screenLogin = document.getElementById("screenLogin");
 const screenDashboard = document.getElementById("screenDashboard");
+const screenPayslip = document.getElementById("screenPayslip");
 const pinInput = document.getElementById("pinInput");
 const pinSubmitBtn = document.getElementById("pinSubmitBtn");
 const loginError = document.getElementById("loginError");
@@ -212,9 +254,20 @@ const workerChips = document.getElementById("workerChips");
 const dashError = document.getElementById("dashError");
 const summaryRow = document.getElementById("summaryRow");
 const weeksContainer = document.getElementById("weeksContainer");
+const payslipBackBtn = document.getElementById("payslipBackBtn");
+const payslipPrintBtn = document.getElementById("payslipPrintBtn");
+const psName = document.getElementById("psName");
+const psPeriod = document.getElementById("psPeriod");
+const psHours = document.getElementById("psHours");
+const psRate = document.getElementById("psRate");
+const psGross = document.getElementById("psGross");
+const psTax = document.getElementById("psTax");
+const psNet = document.getElementById("psNet");
+const psSuper = document.getElementById("psSuper");
+const psGenerated = document.getElementById("psGenerated");
 
 function showScreen(screen) {
-  for (const s of [screenLogin, screenDashboard]) s.hidden = s !== screen;
+  for (const s of [screenLogin, screenDashboard, screenPayslip]) s.hidden = s !== screen;
 }
 
 function fmtDateTime(iso) {
@@ -231,6 +284,16 @@ function locLink(lat, lng) {
   if (lat === null || lat === undefined || lng === null || lng === undefined) return "—";
   const url = `https://www.google.com/maps?q=${lat},${lng}`;
   return `<a class="loc-link" href="${url}" target="_blank" rel="noopener">Map ↗</a>`;
+}
+function fmtMoney(n) {
+  if (n === null || n === undefined || isNaN(n)) return "—";
+  return `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+function calcPay(hours, rate, taxRate, superRate) {
+  const gross = hours * rate;
+  const tax = gross * taxRate;
+  const net = gross - tax;
+  return { gross, tax, net, super: gross * superRate };
 }
 
 // Pay weeks run Friday–Thursday. Deliberately uses the browser's LOCAL date
@@ -310,7 +373,7 @@ async function enterDashboard() {
     return;
   }
 
-  const { data: profileRows } = await supabase.from("profiles").select("id, name").order("name");
+  const { data: profileRows } = await supabase.from("profiles").select("id, name, hourly_rate, tax_rate, super_rate").order("name");
   workers = profileRows || [];
 
   showScreen(screenDashboard);
@@ -321,7 +384,7 @@ async function loadHours() {
   dashError.hidden = true;
   const { data, error } = await supabase
     .from("time_entries")
-    .select("id, worker_id, clock_in_at, clock_in_lat, clock_in_lng, clock_out_at, clock_out_lat, clock_out_lng, hours_worked, profiles(name)")
+    .select("id, worker_id, clock_in_at, clock_in_lat, clock_in_lng, clock_out_at, clock_out_lat, clock_out_lng, hours_worked, edited_at, profiles(name)")
     .order("clock_in_at", { ascending: false });
 
   if (error) {
@@ -395,6 +458,36 @@ function buildWeekSection(label, items, isOpen) {
   const body = document.createElement("div");
   body.className = "week-body";
 
+  // Only one worker's rate applies at a time, so the pay breakdown only
+  // makes sense once a single worker is selected (not "All workers").
+  const selectedWorker = selectedWorkerId ? workers.find((w) => w.id === selectedWorkerId) : null;
+  const hasRate = selectedWorker && selectedWorker.hourly_rate !== null && selectedWorker.hourly_rate !== undefined;
+  if (hasRate) {
+    const rate = Number(selectedWorker.hourly_rate);
+    const taxRate = Number(selectedWorker.tax_rate || 0);
+    const superRate = Number(selectedWorker.super_rate || 0);
+    const pay = calcPay(totalHours, rate, taxRate, superRate);
+
+    const payCard = document.createElement("div");
+    payCard.className = "card";
+    payCard.innerHTML = `
+      <div class="pay-summary">
+        <div><span class="label">Gross pay</span><span class="value">${fmtMoney(pay.gross)}</span></div>
+        <div><span class="label">Net pay</span><span class="value">${fmtMoney(pay.net)}</span></div>
+        <div><span class="label">Tax (est.)</span><span class="value">-${fmtMoney(pay.tax)}</span></div>
+        <div><span class="label">Super (on top)</span><span class="value">${fmtMoney(pay.super)}</span></div>
+      </div>
+    `;
+    const payslipBtn = document.createElement("button");
+    payslipBtn.type = "button";
+    payslipBtn.className = "btn btn-ghost";
+    payslipBtn.style.marginTop = "12px";
+    payslipBtn.textContent = "View payslip";
+    payslipBtn.addEventListener("click", () => showPayslip(selectedWorker, label, totalHours, pay));
+    payCard.appendChild(payslipBtn);
+    body.appendChild(payCard);
+  }
+
   if (items.length === 0) {
     const empty = document.createElement("p");
     empty.className = "empty-note";
@@ -419,7 +512,7 @@ function buildWeekSection(label, items, isOpen) {
         <td>${locLink(row.clock_in_lat, row.clock_in_lng)}</td>
         <td>${row.clock_out_at ? fmtDateTime(row.clock_out_at) : "still clocked in"}</td>
         <td>${row.clock_out_at ? locLink(row.clock_out_lat, row.clock_out_lng) : "—"}</td>
-        <td class="hours">${fmtHours(row.hours_worked)}</td>
+        <td class="hours">${fmtHours(row.hours_worked)}${row.edited_at ? ' <span class="edited-tag" title="Hand-edited by the worker">✎</span>' : ""}</td>
       `;
       tbody.appendChild(tr);
     });
@@ -444,6 +537,21 @@ function renderWeeks(entries) {
   weeksContainer.appendChild(buildWeekSection(thisWeekInfo.label, thisWeekItems, true));
   olderWeeks.forEach((w) => weeksContainer.appendChild(buildWeekSection(w.label, w.items, false)));
 }
+
+function showPayslip(worker, weekLabel, totalHours, pay) {
+  psName.textContent = worker.name;
+  psPeriod.textContent = weekLabel;
+  psHours.textContent = fmtHours(totalHours);
+  psRate.textContent = `${fmtMoney(Number(worker.hourly_rate))} / hr`;
+  psGross.textContent = fmtMoney(pay.gross);
+  psTax.textContent = `-${fmtMoney(pay.tax)} (${Math.round(Number(worker.tax_rate) * 100)}%)`;
+  psNet.textContent = fmtMoney(pay.net);
+  psSuper.textContent = `${fmtMoney(pay.super)} (${Math.round(Number(worker.super_rate) * 100)}%)`;
+  psGenerated.textContent = new Date().toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+  showScreen(screenPayslip);
+}
+payslipBackBtn.addEventListener("click", () => showScreen(screenDashboard));
+payslipPrintBtn.addEventListener("click", () => window.print());
 
 // Light auto-refresh so the "currently clocked in" view stays live.
 setInterval(() => { if (!screenDashboard.hidden) loadHours(); }, 60000);

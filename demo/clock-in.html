@@ -139,8 +139,55 @@
   table.history td.hours { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
   table.history a.time-link { color: var(--accent); text-decoration: none; }
   table.history a.time-link:hover { text-decoration: underline; }
-  .history-total { text-align: right; font-size: 13px; color: var(--ink-soft); margin-top: 4px; }
+  table.history td.edit-cell { text-align: right; white-space: nowrap; }
+  .edit-btn {
+    appearance: none; border: 1px solid var(--line); background: var(--paper-raised); color: var(--ink-soft);
+    border-radius: 8px; padding: 5px 10px; font-size: 12px; cursor: pointer; font-family: inherit;
+  }
+  .edit-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .edited-tag { color: var(--steel); font-style: italic; cursor: help; }
   .empty-note { color: var(--steel); font-size: 13.5px; text-align: center; padding: 8px 0; }
+
+  .add-shift-link {
+    background: none; border: 1px dashed var(--line); color: var(--accent); border-radius: 12px;
+    padding: 12px 16px; font-size: 14px; font-weight: 600; cursor: pointer; text-align: center;
+  }
+  .add-shift-link:hover { border-color: var(--accent); background: var(--accent-soft); }
+
+  .field-label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--ink-soft); font-weight: 600; }
+  .field-label input {
+    padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--paper);
+    color: var(--ink); font-size: 15px; font-family: inherit;
+  }
+  .field-label input:focus { outline: none; border-color: var(--focus); box-shadow: 0 0 0 3px var(--accent-soft); }
+
+  details.week { border-top: 1px dashed var(--line); padding-top: 16px; margin-top: 10px; }
+  details.week:first-of-type { border-top: none; padding-top: 0; margin-top: 0; }
+  details.week + details.week { margin-top: 18px; }
+  details.week summary {
+    cursor: pointer; list-style: none; display: flex; align-items: center; gap: 10px;
+    font-size: 13px; font-weight: 600; color: var(--steel); text-transform: uppercase;
+    letter-spacing: 0.05em; padding: 2px 0;
+  }
+  details.week summary::-webkit-details-marker { display: none; }
+  details.week summary::before { content: "▸"; font-size: 11px; color: var(--gold); transition: transform 0.15s ease; }
+  details.week[open] summary::before { transform: rotate(90deg); }
+  details.week summary .n {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace;
+    color: var(--ink-soft); font-weight: 500; text-transform: none; letter-spacing: 0;
+  }
+  details.week .week-body { padding-top: 14px; display: flex; flex-direction: column; gap: 14px; }
+
+  .pay-summary { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 16px; }
+  .pay-summary div { display: flex; flex-direction: column; gap: 2px; }
+  .pay-summary .label { font-size: 11.5px; color: var(--steel); text-transform: uppercase; letter-spacing: 0.03em; }
+  .pay-summary .value { font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+  .payslip .payslip-header { text-align: center; margin-bottom: 14px; }
+  .payslip .payslip-header h2 { margin: 4px 0 0; font-size: 20px; }
+  .payslip-row { display: flex; justify-content: space-between; gap: 12px; padding: 9px 0; border-bottom: 1px solid var(--line); font-size: 14.5px; }
+  .payslip-row.total { font-weight: 700; font-size: 16px; border-bottom: none; padding-top: 12px; }
+  .payslip-note { color: var(--steel); font-size: 12px; margin: 16px 0 0; }
 
   .spinner {
     display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.4);
@@ -149,6 +196,13 @@
   @keyframes spin { to { transform: rotate(360deg); } }
 
   footer.page { text-align: center; font-size: 12px; color: var(--steel); padding: 20px 0 8px; }
+
+  @media print {
+    body * { visibility: hidden; }
+    #payslipPrintArea, #payslipPrintArea * { visibility: visible; }
+    #payslipPrintArea { position: absolute; top: 0; left: 0; width: 100%; box-shadow: none; border: none; }
+    .no-print { display: none !important; }
+  }
 </style>
 </head>
 <body>
@@ -157,7 +211,7 @@
 
 <div class="page-pad">
 
-<nav class="tabnav">
+<nav class="tabnav no-print">
   <a href="index.html">Home</a>
   <a href="quote-scheduler.html">Approved Jobs</a>
   <a href="enquiries.html">New Enquiries</a>
@@ -165,7 +219,7 @@
   <a href="admin-hours.html">Admin</a>
 </nav>
 
-<header class="page">
+<header class="page no-print">
   <img class="badge-mark" src="assets/fosters-fencing-logo.jpg" alt="Fosters Fencing logo" />
   <span class="eyebrow">Fosters Fencing</span>
   <h1>Worker Clock In</h1>
@@ -204,22 +258,69 @@
   <button type="button" class="btn btn-clockin" id="clockInBtn" hidden>Clock In</button>
   <button type="button" class="btn btn-clockout" id="clockOutBtn" hidden>Clock Out</button>
 
-  <div class="card">
-    <p style="margin: 0 0 10px; font-weight: 700; font-size: 14.5px;">Your recent shifts</p>
-    <table class="history" id="historyTable">
-      <thead>
-        <tr><th>Date</th><th>In</th><th>Out</th><th class="hours">Hours</th></tr>
-      </thead>
-      <tbody id="historyBody"></tbody>
-    </table>
-    <p class="empty-note" id="historyEmpty" hidden>No shifts recorded yet.</p>
-    <p class="history-total" id="historyTotal" hidden></p>
+  <button type="button" class="add-shift-link" id="addMissedBtn">+ Log a shift you forgot to clock</button>
+
+  <div id="weeksContainer"></div>
+</section>
+
+<!-- Screen 4: edit an existing shift -->
+<section id="screenEditShift" class="screen" hidden>
+  <button type="button" class="back-link" id="editBackBtn">← Back to your shifts</button>
+  <div class="card screen">
+    <p style="margin: 0; font-weight: 700; font-size: 15px;">Edit shift</p>
+    <label class="field-label">Clock in
+      <input type="datetime-local" id="editClockIn" />
+    </label>
+    <label class="field-label">Clock out (leave blank if you're still clocked in)
+      <input type="datetime-local" id="editClockOut" />
+    </label>
+    <div class="msg error" id="editError" hidden></div>
+    <div class="msg info">Changing a time clears the GPS location recorded for it, and marks the shift as edited so the admin can see it was corrected.</div>
+    <button type="button" class="btn btn-primary" id="editSaveBtn">Save changes</button>
   </div>
+</section>
+
+<!-- Screen 5: log a missed shift -->
+<section id="screenAddShift" class="screen" hidden>
+  <button type="button" class="back-link" id="addBackBtn">← Back to your shifts</button>
+  <div class="card screen">
+    <p style="margin: 0; font-weight: 700; font-size: 15px;">Log a shift you forgot to clock</p>
+    <label class="field-label">Clock in
+      <input type="datetime-local" id="addClockIn" />
+    </label>
+    <label class="field-label">Clock out
+      <input type="datetime-local" id="addClockOut" />
+    </label>
+    <div class="msg error" id="addError" hidden></div>
+    <div class="msg info">No GPS location is recorded for a manually logged shift.</div>
+    <button type="button" class="btn btn-primary" id="addSaveBtn">Add shift</button>
+  </div>
+</section>
+
+<!-- Screen 6: payslip -->
+<section id="screenPayslip" class="screen" hidden>
+  <button type="button" class="back-link no-print" id="payslipBackBtn">← Back to your shifts</button>
+  <div class="card payslip" id="payslipPrintArea">
+    <div class="payslip-header">
+      <span class="eyebrow">Fosters Fencing</span>
+      <h2>Payslip</h2>
+    </div>
+    <div class="payslip-row"><span>Employee</span><span id="psName"></span></div>
+    <div class="payslip-row"><span>Pay period</span><span id="psPeriod"></span></div>
+    <div class="payslip-row"><span>Hours worked</span><span id="psHours"></span></div>
+    <div class="payslip-row"><span>Hourly rate</span><span id="psRate"></span></div>
+    <div class="payslip-row"><span>Gross pay</span><span id="psGross"></span></div>
+    <div class="payslip-row"><span>Tax withheld (est.)</span><span id="psTax"></span></div>
+    <div class="payslip-row total"><span>Net pay</span><span id="psNet"></span></div>
+    <div class="payslip-row"><span>Superannuation (paid on top)</span><span id="psSuper"></span></div>
+    <p class="payslip-note">Generated <span id="psGenerated"></span>. Internal estimate for Fosters Fencing's own records — not a certified payroll or Fair Work-compliant payslip.</p>
+  </div>
+  <button type="button" class="btn btn-primary no-print" id="payslipPrintBtn">Print / Save as PDF</button>
 </section>
 
 </div>
 
-<footer class="page">Fosters Fencing — Worker Clock In</footer>
+<footer class="page no-print">Fosters Fencing — Worker Clock In</footer>
 
 <script type="module">
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -247,6 +348,11 @@ const supabase = createClient(CONFIG.supabaseUrl, CONFIG.supabaseAnonKey, {
 const screenSelect = document.getElementById("screenSelect");
 const screenPin = document.getElementById("screenPin");
 const screenClock = document.getElementById("screenClock");
+const screenEditShift = document.getElementById("screenEditShift");
+const screenAddShift = document.getElementById("screenAddShift");
+const screenPayslip = document.getElementById("screenPayslip");
+const ALL_SCREENS = [screenSelect, screenPin, screenClock, screenEditShift, screenAddShift, screenPayslip];
+
 const workerList = document.getElementById("workerList");
 const noWorkersNote = document.getElementById("noWorkersNote");
 const pinBackBtn = document.getElementById("pinBackBtn");
@@ -261,15 +367,41 @@ const locationNote = document.getElementById("locationNote");
 const statusBanner = document.getElementById("statusBanner");
 const clockInBtn = document.getElementById("clockInBtn");
 const clockOutBtn = document.getElementById("clockOutBtn");
-const historyBody = document.getElementById("historyBody");
-const historyEmpty = document.getElementById("historyEmpty");
-const historyTotal = document.getElementById("historyTotal");
+const addMissedBtn = document.getElementById("addMissedBtn");
+const weeksContainer = document.getElementById("weeksContainer");
+
+const editBackBtn = document.getElementById("editBackBtn");
+const editClockIn = document.getElementById("editClockIn");
+const editClockOut = document.getElementById("editClockOut");
+const editError = document.getElementById("editError");
+const editSaveBtn = document.getElementById("editSaveBtn");
+
+const addBackBtn = document.getElementById("addBackBtn");
+const addClockIn = document.getElementById("addClockIn");
+const addClockOut = document.getElementById("addClockOut");
+const addError = document.getElementById("addError");
+const addSaveBtn = document.getElementById("addSaveBtn");
+
+const payslipBackBtn = document.getElementById("payslipBackBtn");
+const payslipPrintBtn = document.getElementById("payslipPrintBtn");
+const psName = document.getElementById("psName");
+const psPeriod = document.getElementById("psPeriod");
+const psHours = document.getElementById("psHours");
+const psRate = document.getElementById("psRate");
+const psGross = document.getElementById("psGross");
+const psTax = document.getElementById("psTax");
+const psNet = document.getElementById("psNet");
+const psSuper = document.getElementById("psSuper");
+const psGenerated = document.getElementById("psGenerated");
 
 let selectedWorker = null;
+let currentProfile = null; // { id, name, hourly_rate, tax_rate, super_rate }
 let openShift = null; // the currently-open time_entries row, if any
+let currentEntries = []; // flat cache of the signed-in worker's own shifts, for the edit screen
+let editingEntryId = null;
 
 function showScreen(screen) {
-  for (const s of [screenSelect, screenPin, screenClock]) s.hidden = s !== screen;
+  for (const s of ALL_SCREENS) s.hidden = s !== screen;
 }
 
 function renderWorkerList() {
@@ -340,11 +472,6 @@ function getLocation(timeoutMs = 8000) {
   });
 }
 
-function fmtDateTime(iso) {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  return d.toLocaleString(undefined, { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
-}
 function fmtTime(iso) {
   if (!iso) return "—";
   return new Date(iso).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
@@ -358,11 +485,51 @@ function fmtHours(h) {
   const mins = Math.round((h - hrs) * 60);
   return `${hrs}h ${String(mins).padStart(2, "0")}m`;
 }
+function fmtMoney(n) {
+  if (n === null || n === undefined || isNaN(n)) return "—";
+  return `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
 function timeLink(iso, lat, lng) {
   const t = fmtTime(iso);
   if (!iso) return t;
   if (lat === null || lat === undefined || lng === null || lng === undefined) return t;
   return `<a class="time-link" href="https://www.google.com/maps?q=${lat},${lng}" target="_blank" rel="noopener">${t}</a>`;
+}
+function toLocalInputValue(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+function calcPay(hours, rate, taxRate, superRate) {
+  const gross = hours * rate;
+  const tax = gross * taxRate;
+  const net = gross - tax;
+  return { gross, tax, net, super: gross * superRate };
+}
+
+// Pay weeks run Friday–Thursday, using local date parts (matches the
+// worker's actual timezone, not UTC).
+function weekInfoFor(date) {
+  const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const dow = date.getDay();
+  const daysSinceFriday = (dow - 5 + 7) % 7;
+  const friday = new Date(date.getFullYear(), date.getMonth(), date.getDate() - daysSinceFriday);
+  const thursday = new Date(friday.getFullYear(), friday.getMonth(), friday.getDate() + 6);
+  const sameMonth = friday.getMonth() === thursday.getMonth();
+  const start = sameMonth ? `${friday.getDate()}` : `${friday.getDate()} ${monthNames[friday.getMonth()]}`;
+  const end = `${thursday.getDate()} ${monthNames[thursday.getMonth()]} ${thursday.getFullYear()}`;
+  const key = `${friday.getFullYear()}-${String(friday.getMonth() + 1).padStart(2, "0")}-${String(friday.getDate()).padStart(2, "0")}`;
+  return { key, friday, label: `Pay week ${start}–${end}` };
+}
+function groupByWeek(entries) {
+  const weeks = {};
+  entries.forEach((e) => {
+    const info = weekInfoFor(new Date(e.clock_in_at));
+    if (!weeks[info.key]) weeks[info.key] = { key: info.key, label: info.label, friday: info.friday, items: [] };
+    weeks[info.key].items.push(e);
+  });
+  return Object.values(weeks).sort((a, b) => b.friday - a.friday);
 }
 
 async function refreshOpenShift(userId) {
@@ -393,36 +560,207 @@ function renderClockButtons() {
   }
 }
 
+function openEditShift(id) {
+  const entry = currentEntries.find((e) => e.id === id);
+  if (!entry) return;
+  editingEntryId = id;
+  editClockIn.value = toLocalInputValue(entry.clock_in_at);
+  editClockOut.value = toLocalInputValue(entry.clock_out_at);
+  editError.hidden = true;
+  showScreen(screenEditShift);
+}
+
+editBackBtn.addEventListener("click", () => showScreen(screenClock));
+
+async function saveEditShift() {
+  if (!editingEntryId) return;
+  if (!editClockIn.value) {
+    editError.textContent = "Clock-in time is required.";
+    editError.hidden = false;
+    return;
+  }
+  const payload = {
+    clock_in_at: new Date(editClockIn.value).toISOString(),
+    clock_out_at: editClockOut.value ? new Date(editClockOut.value).toISOString() : null
+  };
+
+  editSaveBtn.disabled = true;
+  editSaveBtn.textContent = "Saving…";
+  const { error } = await supabase.from("time_entries").update(payload).eq("id", editingEntryId);
+  editSaveBtn.disabled = false;
+  editSaveBtn.textContent = "Save changes";
+
+  if (error) {
+    editError.textContent = error.code === "23505"
+      ? "You already have another open shift — close that one out first."
+      : (error.message || "Couldn't save changes.");
+    editError.hidden = false;
+    return;
+  }
+
+  const { data: { session } } = await supabase.auth.getSession();
+  await refreshOpenShift(session.user.id);
+  await refreshHistory(session.user.id);
+  showScreen(screenClock);
+}
+editSaveBtn.addEventListener("click", saveEditShift);
+
+addMissedBtn.addEventListener("click", () => {
+  addClockIn.value = "";
+  addClockOut.value = "";
+  addError.hidden = true;
+  showScreen(screenAddShift);
+});
+addBackBtn.addEventListener("click", () => showScreen(screenClock));
+
+async function saveAddShift() {
+  if (!addClockIn.value || !addClockOut.value) {
+    addError.textContent = "Both clock-in and clock-out times are required.";
+    addError.hidden = false;
+    return;
+  }
+  const inDate = new Date(addClockIn.value);
+  const outDate = new Date(addClockOut.value);
+  if (outDate <= inDate) {
+    addError.textContent = "Clock-out must be after clock-in.";
+    addError.hidden = false;
+    return;
+  }
+
+  const { data: { session } } = await supabase.auth.getSession();
+  addSaveBtn.disabled = true;
+  addSaveBtn.textContent = "Adding…";
+  const { error } = await supabase.from("time_entries").insert({
+    worker_id: session.user.id,
+    clock_in_at: inDate.toISOString(),
+    clock_out_at: outDate.toISOString(),
+    edited_at: new Date().toISOString()
+  });
+  addSaveBtn.disabled = false;
+  addSaveBtn.textContent = "Add shift";
+
+  if (error) {
+    addError.textContent = error.message || "Couldn't add shift.";
+    addError.hidden = false;
+    return;
+  }
+
+  await refreshOpenShift(session.user.id);
+  await refreshHistory(session.user.id);
+  showScreen(screenClock);
+}
+addSaveBtn.addEventListener("click", saveAddShift);
+
+function showPayslip(weekLabel, totalHours, pay) {
+  psName.textContent = currentProfile.name;
+  psPeriod.textContent = weekLabel;
+  psHours.textContent = fmtHours(totalHours);
+  psRate.textContent = `${fmtMoney(Number(currentProfile.hourly_rate))} / hr`;
+  psGross.textContent = fmtMoney(pay.gross);
+  psTax.textContent = `-${fmtMoney(pay.tax)} (${Math.round(Number(currentProfile.tax_rate) * 100)}%)`;
+  psNet.textContent = fmtMoney(pay.net);
+  psSuper.textContent = `${fmtMoney(pay.super)} (${Math.round(Number(currentProfile.super_rate) * 100)}%)`;
+  psGenerated.textContent = new Date().toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+  showScreen(screenPayslip);
+}
+payslipBackBtn.addEventListener("click", () => showScreen(screenClock));
+payslipPrintBtn.addEventListener("click", () => window.print());
+
+function buildWeekSection(label, items, isOpen) {
+  const totalHours = items.reduce((sum, r) => sum + Number(r.hours_worked || 0), 0);
+  const hasRate = currentProfile && currentProfile.hourly_rate !== null && currentProfile.hourly_rate !== undefined;
+  const pay = hasRate
+    ? calcPay(totalHours, Number(currentProfile.hourly_rate), Number(currentProfile.tax_rate || 0), Number(currentProfile.super_rate || 0))
+    : null;
+
+  const details = document.createElement("details");
+  details.className = "week";
+  details.open = isOpen;
+
+  const summary = document.createElement("summary");
+  const heading = isOpen ? `This week · ${label.replace("Pay week ", "")}` : label;
+  summary.innerHTML = `${heading} <span class="n">· ${items.length} ${items.length === 1 ? "shift" : "shifts"} · ${fmtHours(totalHours)}</span>`;
+  details.appendChild(summary);
+
+  const body = document.createElement("div");
+  body.className = "week-body";
+
+  if (pay) {
+    const payCard = document.createElement("div");
+    payCard.className = "card";
+    payCard.innerHTML = `
+      <div class="pay-summary">
+        <div><span class="label">Gross pay</span><span class="value">${fmtMoney(pay.gross)}</span></div>
+        <div><span class="label">Net pay</span><span class="value">${fmtMoney(pay.net)}</span></div>
+        <div><span class="label">Tax (est.)</span><span class="value">-${fmtMoney(pay.tax)}</span></div>
+        <div><span class="label">Super (on top)</span><span class="value">${fmtMoney(pay.super)}</span></div>
+      </div>
+    `;
+    const payslipBtn = document.createElement("button");
+    payslipBtn.type = "button";
+    payslipBtn.className = "btn btn-ghost";
+    payslipBtn.style.marginTop = "12px";
+    payslipBtn.textContent = "View payslip";
+    payslipBtn.addEventListener("click", () => showPayslip(label, totalHours, pay));
+    payCard.appendChild(payslipBtn);
+    body.appendChild(payCard);
+  }
+
+  if (items.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "empty-note";
+    empty.style.margin = "0";
+    empty.textContent = "No shifts this week.";
+    body.appendChild(empty);
+  } else {
+    const table = document.createElement("table");
+    table.className = "history";
+    table.innerHTML = `<thead><tr><th>Date</th><th>In</th><th>Out</th><th class="hours">Hours</th><th></th></tr></thead><tbody></tbody>`;
+    const tbody = table.querySelector("tbody");
+    items.slice().sort((a, b) => new Date(b.clock_in_at) - new Date(a.clock_in_at)).forEach((row) => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${fmtDate(row.clock_in_at)}</td>
+        <td>${timeLink(row.clock_in_at, row.clock_in_lat, row.clock_in_lng)}</td>
+        <td>${row.clock_out_at ? timeLink(row.clock_out_at, row.clock_out_lat, row.clock_out_lng) : "—"}</td>
+        <td class="hours">${fmtHours(row.hours_worked)}${row.edited_at ? ' <span class="edited-tag" title="Hand-edited">✎</span>' : ""}</td>
+        <td class="edit-cell"><button type="button" class="edit-btn" data-id="${row.id}">Edit</button></td>
+      `;
+      tbody.appendChild(tr);
+    });
+    body.appendChild(table);
+  }
+
+  details.appendChild(body);
+  return details;
+}
+
+function renderWeeks() {
+  weeksContainer.innerHTML = "";
+  const weeks = groupByWeek(currentEntries);
+  const thisWeekInfo = weekInfoFor(new Date());
+  const hasThisWeekData = weeks.length > 0 && weeks[0].key === thisWeekInfo.key;
+  const thisWeekItems = hasThisWeekData ? weeks[0].items : [];
+  const olderWeeks = hasThisWeekData ? weeks.slice(1) : weeks;
+
+  weeksContainer.appendChild(buildWeekSection(thisWeekInfo.label, thisWeekItems, true));
+  olderWeeks.forEach((w) => weeksContainer.appendChild(buildWeekSection(w.label, w.items, false)));
+
+  weeksContainer.querySelectorAll(".edit-btn").forEach((btn) => {
+    btn.addEventListener("click", () => openEditShift(btn.dataset.id));
+  });
+}
+
 async function refreshHistory(userId) {
   const { data, error } = await supabase
     .from("time_entries")
-    .select("id, clock_in_at, clock_in_lat, clock_in_lng, clock_out_at, clock_out_lat, clock_out_lng, hours_worked")
+    .select("id, clock_in_at, clock_in_lat, clock_in_lng, clock_out_at, clock_out_lat, clock_out_lng, hours_worked, edited_at")
     .eq("worker_id", userId)
-    .order("clock_in_at", { ascending: false })
-    .limit(10);
+    .order("clock_in_at", { ascending: false });
   if (error) throw error;
 
-  historyBody.innerHTML = "";
-  if (!data || data.length === 0) {
-    historyEmpty.hidden = false;
-    historyTotal.hidden = true;
-    return;
-  }
-  historyEmpty.hidden = true;
-  let total = 0;
-  for (const row of data) {
-    if (row.hours_worked) total += Number(row.hours_worked);
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td>${fmtDate(row.clock_in_at)}</td>
-      <td>${timeLink(row.clock_in_at, row.clock_in_lat, row.clock_in_lng)}</td>
-      <td>${row.clock_out_at ? timeLink(row.clock_out_at, row.clock_out_lat, row.clock_out_lng) : "—"}</td>
-      <td class="hours">${fmtHours(row.hours_worked)}</td>
-    `;
-    historyBody.appendChild(tr);
-  }
-  historyTotal.hidden = false;
-  historyTotal.textContent = `Last ${data.length} shift${data.length === 1 ? "" : "s"} · ${fmtHours(total)} total`;
+  currentEntries = data || [];
+  renderWeeks();
 }
 
 async function enterClockScreen() {
@@ -431,7 +769,7 @@ async function enterClockScreen() {
 
   const { data: profile, error: profileErr } = await supabase
     .from("profiles")
-    .select("id, name")
+    .select("id, name, hourly_rate, tax_rate, super_rate")
     .eq("id", session.user.id)
     .maybeSingle();
 
@@ -443,6 +781,7 @@ async function enterClockScreen() {
     return;
   }
 
+  currentProfile = profile;
   clockWorkerName.textContent = profile.name;
   clockError.hidden = true;
   locationNote.hidden = true;

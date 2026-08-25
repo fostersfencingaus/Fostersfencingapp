@@ -16,6 +16,13 @@ create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   name text not null,
   is_admin boolean not null default false,
+  -- Pay rate fields, set per worker by the owner directly in this table
+  -- (not editable from either page) — used to calculate weekly pay and
+  -- payslips. Leave null for logins that don't get paid through this
+  -- (e.g. the admin/owner account).
+  hourly_rate numeric,
+  tax_rate numeric,   -- e.g. 0.24 for 24%
+  super_rate numeric, -- e.g. 0.12 for 12%, paid on top of gross
   created_at timestamptz not null default now()
 );
 
@@ -31,6 +38,9 @@ create table if not exists public.time_entries (
   clock_out_lat double precision,
   clock_out_lng double precision,
   clock_out_accuracy_m double precision,
+  -- Set the moment a worker hand-corrects clock_in_at or clock_out_at
+  -- (see protect_clock_in_fields below) — null on an untouched, live-GPS row.
+  edited_at timestamptz,
   -- Auto-computed the moment clock_out_at is set; null while still clocked in.
   hours_worked numeric generated always as (
     case
@@ -62,21 +72,36 @@ as $$
   select coalesce((select is_admin from public.profiles where id = auth.uid()), false);
 $$;
 
--- Once a shift is created, a worker may only ever fill in its clock-out
--- fields — not rewrite when/where they clocked in, or reassign it to
--- someone else. Keeps the timesheet trustworthy for payroll.
+-- Workers can hand-correct their own clock in/out times (forgotten taps,
+-- wrong times) but can never reassign a shift to someone else. Trust is
+-- kept via edited_at (visible to the admin) plus dropping whatever GPS fix
+-- was attached to a time the instant that time is hand-edited — a location
+-- captured for the old time doesn't mean anything for the corrected one.
+-- The very first time clock_out_at is set (a normal Clock Out tap, which
+-- legitimately submits live GPS alongside it) is not treated as an edit.
 create or replace function public.protect_clock_in_fields()
 returns trigger
 language plpgsql
 as $$
 begin
-  if new.worker_id is distinct from old.worker_id
-     or new.clock_in_at is distinct from old.clock_in_at
-     or new.clock_in_lat is distinct from old.clock_in_lat
-     or new.clock_in_lng is distinct from old.clock_in_lng
-  then
-    raise exception 'clock_in fields and worker_id cannot be changed after creation';
+  if new.worker_id is distinct from old.worker_id then
+    raise exception 'worker_id cannot be changed after creation';
   end if;
+
+  if new.clock_in_at is distinct from old.clock_in_at then
+    new.clock_in_lat := null;
+    new.clock_in_lng := null;
+    new.clock_in_accuracy_m := null;
+    new.edited_at := now();
+  end if;
+
+  if old.clock_out_at is not null and new.clock_out_at is distinct from old.clock_out_at then
+    new.clock_out_lat := null;
+    new.clock_out_lng := null;
+    new.clock_out_accuracy_m := null;
+    new.edited_at := now();
+  end if;
+
   return new;
 end;
 $$;
@@ -104,11 +129,13 @@ create policy time_entries_insert_own
   on public.time_entries for insert
   with check (worker_id = auth.uid());
 
--- Workers can only update their own *currently open* entry (i.e. clocking
--- out). Once clock_out_at is set the row is closed for everyone except via
--- the Supabase dashboard (no admin write policy is defined on purpose).
+-- Workers can update any of their own shifts, open or already closed (see
+-- protect_clock_in_fields for what happens to the GPS fields when they do).
+-- There's still no admin write policy — the owner corrects things, if ever
+-- needed, via the Supabase dashboard.
 drop policy if exists time_entries_update_own_open_shift on public.time_entries;
-create policy time_entries_update_own_open_shift
+drop policy if exists time_entries_update_own on public.time_entries;
+create policy time_entries_update_own
   on public.time_entries for update
-  using (worker_id = auth.uid() and clock_out_at is null)
+  using (worker_id = auth.uid())
   with check (worker_id = auth.uid());

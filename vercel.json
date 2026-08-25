@@ -9,5 +9,8 @@
     { "source": "/manifest-shopping-list.json", "destination": "/demo/manifest-shopping-list.json" },
     { "source": "/sw.js", "destination": "/demo/sw.js" },
     { "source": "/assets/:path*", "destination": "/demo/assets/:path*" }
+  ],
+  "crons": [
+    { "path": "/api/keep-supabase-alive", "schedule": "0 3 * * *" }
   ]
 }

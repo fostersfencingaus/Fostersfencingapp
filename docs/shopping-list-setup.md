@@ -117,3 +117,18 @@ Edit the `PURCHASED_TTL_MS` constant near the top of the `<script>` block
 in `demo/shopping-list.html` (it's in milliseconds — 48 hours is
 `48 * 60 * 60 * 1000`). The sweep and the on-screen countdown both read
 from that one constant.
+
+## Keeping the free Supabase project from pausing itself
+
+Free-tier Supabase projects automatically pause after roughly a week with
+no API activity — if that happens, the page fails to load with a "Failed
+to fetch" error until someone restores the project from the Supabase
+dashboard (**Project → Restore**).
+
+`api/keep-supabase-alive.js` + the `crons` entry in `vercel.json` run a
+tiny read-only ping against the project once a day (via Vercel Cron,
+which needs no setup beyond being deployed — it's already wired up) so
+this shouldn't come up again as long as the project stays deployed on
+Vercel. If you ever move the shopping list to a different Supabase
+project, update the `SUPABASE_URL/SUPABASE_KEY` constants at the top of
+that file to match.

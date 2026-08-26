@@ -179,6 +179,27 @@
   .app-card .desc { font-size: 13.5px; color: var(--ink-soft); }
   .app-card .arrow { margin-left: auto; color: var(--steel); font-size: 18px; }
 
+  .app-card-action {
+    width: 100%;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+  }
+  .app-card-action .icon { background: var(--gold-soft); }
+
+  .install-help {
+    margin-top: -4px;
+    padding: 14px 16px;
+    background: var(--accent-soft);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--ink-soft);
+  }
+
   footer.page {
     text-align: center;
     font-size: 12px;
@@ -225,7 +246,17 @@
     </span>
     <span class="arrow">→</span>
   </a>
+  <button type="button" class="app-card app-card-action" id="installBtn" hidden>
+    <span class="icon">⬇️</span>
+    <span class="text">
+      <span class="title">Download App</span>
+      <span class="desc" id="installDesc">Add to your home screen for full-screen, one-tap access</span>
+    </span>
+    <span class="arrow">→</span>
+  </button>
 </div>
+
+<div class="install-help" id="installHelp" hidden></div>
 
 </div>
 
@@ -237,6 +268,50 @@
       navigator.serviceWorker.register("sw.js").catch(() => {});
     });
   }
+
+  (function () {
+    var installBtn = document.getElementById("installBtn");
+    var installHelp = document.getElementById("installHelp");
+    var installDesc = document.getElementById("installDesc");
+    var deferredPrompt = null;
+
+    function isStandalone() {
+      return window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+    }
+
+    if (isStandalone()) return;
+
+    var isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    installBtn.hidden = false;
+
+    if (isIOS) {
+      installDesc.textContent = "Tap Share, then \"Add to Home Screen\"";
+      installHelp.textContent = "Tap the Share icon in Safari's toolbar, then choose \"Add to Home Screen\".";
+    } else {
+      installHelp.textContent = "Chrome/Edge: tap the ⋮ menu → \"Add to Home screen\" / \"Install app\". Safari: tap Share → \"Add to Home Screen\".";
+    }
+
+    window.addEventListener("beforeinstallprompt", function (event) {
+      event.preventDefault();
+      deferredPrompt = event;
+      installDesc.textContent = "Add to your home screen for full-screen, one-tap access";
+    });
+
+    installBtn.addEventListener("click", function () {
+      if (deferredPrompt) {
+        var promptEvent = deferredPrompt;
+        deferredPrompt = null;
+        promptEvent.prompt();
+        return;
+      }
+      installHelp.hidden = !installHelp.hidden;
+    });
+
+    window.addEventListener("appinstalled", function () {
+      installBtn.hidden = true;
+      installHelp.hidden = true;
+    });
+  })();
 </script>
 
 </body>

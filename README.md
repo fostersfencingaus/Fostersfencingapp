@@ -36,8 +36,11 @@ screen/dock and opens full-screen like a native app, no app store needed.
    files (`manifest.json`, `sw.js`, icons) to their files under `demo/`.
 2. Open the deployed URL (e.g. `https://fostersfencingapp.vercel.app/`)
    on your phone.
-3. **iPhone (Safari):** tap Share → "Add to Home Screen".
-   **Android (Chrome):** tap the ⋮ menu → "Add to Home screen" / "Install app".
+3. Tap **Download App** at the bottom of the Home page's link list.
+   On Android/Chrome/Edge this triggers the native install prompt directly.
+   On iPhone (Safari doesn't support that prompt) it shows the manual steps
+   instead: Share → "Add to Home Screen". The button hides itself once the
+   app is already installed.
 4. It'll appear as a "Fosters Fencing" icon that opens full-screen,
    defaulting to the Home page with links to Approved Jobs and New
    Enquiries.

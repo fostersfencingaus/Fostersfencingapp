@@ -670,7 +670,7 @@
 
 <div class="group-toggle-row">
   <label class="group-toggle">
-    <input type="checkbox" id="groupUnbookedToggle" />
+    <input type="checkbox" id="groupUnbookedToggle" checked />
     Group jobs awaiting booking together
   </label>
 </div>
@@ -1776,7 +1776,7 @@
       who: "Troy Leber",
       note: "Booked in directly — calendar shows Invoice2go quote number 10983 (remove 9m azi, 27m colorbond), but no approval email was found for it.",
       location: "30 Kempenfeldt Ave",
-      date: "27 Aug 2026",
+      date: "29 Aug 2026",
       bookedDate: "27 Aug 2026",
       colorId: "5"
     },
@@ -1787,7 +1787,7 @@
       who: "Sean Scrimgeour & Frances Blampy",
       note: "Booked in directly — calendar shows Invoice2go quote number 10904 (6m, hf), part of a shared booking with QT11031/QT10905/QT10873, but no approval email was found for it.",
       location: "7 Granton Way, Kingsley, WA 6026",
-      date: "21 Sep 2026",
+      date: "29 Aug 2026",
       bookedDate: "21 Sep 2026",
       colorId: "11"
     },
@@ -1798,7 +1798,7 @@
       who: "Sean Scrimgeour & Frances Blampy",
       note: "Booked in directly — calendar shows Invoice2go quote number 10905 (25m, hf), part of a shared booking with QT11031/QT10904/QT10873, but no approval email was found for it.",
       location: "7 Granton Way, Kingsley, WA 6026",
-      date: "21 Sep 2026",
+      date: "29 Aug 2026",
       bookedDate: "21 Sep 2026",
       colorId: "11"
     },
@@ -1809,7 +1809,7 @@
       who: "Chantelle Beckett",
       note: "Booked in directly — calendar shows Invoice2go quote number 10868 (18.8m hardifence replacement plus double gate kit), but no approval email was found for it.",
       location: "32 Sydenham Rd",
-      date: "20 Oct 2026",
+      date: "29 Aug 2026",
       bookedDate: "20 Oct 2026",
       colorId: "11"
     },
@@ -2019,9 +2019,9 @@
         </div>
       </div>
       <div class="claim-row" data-claim-key="${escapeAttr(quote.id)}">
-        <label class="claim-pill"${quote.bookedDate ? ' title="Confirmed via the daily calendar scan"' : ""}>
-          <input type="checkbox" data-role="claim-booked-input" ${quote.bookedDate ? "checked disabled" : ""} />
-          📅 Booked in
+        <label class="claim-pill" title="${quote.bookedDate ? "Confirmed via the daily calendar scan" : "Ticks automatically once the daily calendar scan confirms this booking -- not manually checkable"}">
+          <input type="checkbox" data-role="claim-booked-input" ${quote.bookedDate ? "checked " : ""}disabled />
+          🔄 Synced
         </label>
         <label class="claim-pill done" title="Marks the job as manually booked in -- clears itself once the next calendar scan confirms it">
           <input type="checkbox" data-role="claim-done-input" />
@@ -2429,8 +2429,12 @@
   // quote number) don't have a "QT#####" id to parse.
   const byQuoteNumber = (a, b) => (parseEntryDate(a.date) || 0) - (parseEntryDate(b.date) || 0);
 
-  function appendCards(items, container) {
-    items.slice().sort(byQuoteNumber).forEach(q => (container || listEl).appendChild(buildCard(q)));
+  // preserveOrder skips the date sort -- used for the "Awaiting booking"
+  // section so jobs stay in the order they were added (roughly the order
+  // the emails came in), rather than being reshuffled by date.
+  function appendCards(items, container, preserveOrder) {
+    const ordered = preserveOrder ? items.slice() : items.slice().sort(byQuoteNumber);
+    ordered.forEach(q => (container || listEl).appendChild(buildCard(q)));
   }
 
   // A swiped-away job's row in "Recently removed" -- deliberately not the
@@ -2521,7 +2525,7 @@
       awaitingHeading.className = "thisweek-heading";
       awaitingHeading.textContent = `Awaiting booking · ${unbooked.length} ${unbooked.length === 1 ? "job" : "jobs"}`;
       listEl.appendChild(awaitingHeading);
-      appendCards(unbooked);
+      appendCards(unbooked, undefined, true);
     }
 
     const { weeks, noDate } = groupByWeek(weeklyItems);

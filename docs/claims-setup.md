@@ -19,10 +19,21 @@ Next to it is a separate **✅ Done** checkbox — a personal "I've booked
 this in myself" placeholder for the stretch before the next calendar scan
 catches up. Tick it and the card just stays put, ticked, wherever it
 already sits (no move to a separate section). It's the one checkbox that
-clears itself automatically: once that quote picks up a `bookedDate` (the
-scan found the matching calendar event), the "Done" tick is stale — it's
-been superseded by a real confirmed booking — so it's cleared for you the
-next time the page polls, the same as if you'd unticked it yourself.
+clears itself automatically, in either direction:
+
+- Once that quote picks up a `bookedDate` (the scan found the matching
+  calendar event), the "Done" tick is stale — it's been superseded by a
+  real confirmed booking — so it's cleared for you the next time the page
+  polls, the same as if you'd unticked it yourself.
+- If the *next* daily calendar sync searches for that job (by quote
+  number, the "QT"-prefixed form, client name, and address) and still
+  finds nothing, the tick gets cleared the other way too — by the sync
+  routine itself, via a direct API call, not by the page. A job that
+  isn't on the calendar isn't booked, whether the tick was an accidental
+  click or a booking that never actually got created — either way it goes
+  back to plain "Awaiting a booking," not "Completed." A "Done" tick is
+  therefore never trusted past one full daily sync cycle without a real
+  calendar match to back it up.
 
 Every card can also be **swiped left** to remove it — for the odd
 approval that comes through wrong (a duplicate, a stray test entry, that
@@ -79,11 +90,16 @@ another, including via the periodic poll (not just on page load).
   synced the same way.
 - **✅ Done** is a manual toggle that stays on its card wherever it already
   sits — it never moves the job to a separate section. It's also the one
-  checkbox that can untick itself: as soon as the quote gets a
-  `bookedDate` from a calendar scan, any "Done" tick on it is cleared
-  automatically (checked against the live data on every 15s poll), since
-  the manual placeholder is no longer needed once the real booking is
-  confirmed.
+  checkbox that can untick itself, in either direction: as soon as the
+  quote gets a `bookedDate` from a calendar scan, any "Done" tick on it is
+  cleared automatically client-side (checked against the live data on
+  every 15s poll), since the manual placeholder is no longer needed once
+  the real booking is confirmed. And if the *next* daily calendar sync
+  searches (by quote number, name, and address) and still finds no
+  matching event, the sync routine itself clears the tick directly via
+  the claims API — an unconfirmed "Done" doesn't get to sit there
+  indefinitely counting toward "Completed" just because nobody unticked
+  it; if it's not on the calendar, it's not booked.
 - **Swipe-to-delete** works the same way membership-wise (out of the main
   list, into its own collapsed section) but isn't a checkbox — swipe the
   card left, then tap the red button that's revealed underneath to

@@ -243,7 +243,7 @@ const CONFIG = {
 const NAME_STORAGE_KEY = "ff-shopping-list-name";
 const PURCHASED_TTL_MS = 48 * 60 * 60 * 1000; // 48 hours
 const SWEEP_INTERVAL_MS = 5 * 60 * 1000; // check for expired items every 5 minutes
-const RERENDER_INTERVAL_MS = 60 * 1000; // refresh relative timestamps / drop expired items from view
+const REFRESH_INTERVAL_MS = 20 * 1000; // full re-sync from the server, in case realtime missed something
 
 const supabase = createClient(CONFIG.supabaseUrl, CONFIG.supabaseAnonKey);
 
@@ -623,9 +623,26 @@ supabase
     removeItem(payload.old.id);
     renderList();
   })
-  .subscribe();
+  .subscribe((status) => {
+    // Realtime sockets can silently die on mobile (screen lock, backgrounding,
+    // switching wifi/cellular) without the page noticing. Rather than trust
+    // the socket to always reconnect cleanly, treat any non-SUBSCRIBED status
+    // as a cue to re-sync from the server right away; the periodic refresh
+    // below is the backstop for everything else.
+    if (status !== "SUBSCRIBED") {
+      console.warn("Realtime status:", status);
+      loadItems();
+    }
+  });
 
-setInterval(renderList, RERENDER_INTERVAL_MS);
+// Belt-and-braces against missed realtime events: re-fetch the full list
+// periodically regardless of the socket's state, and whenever the page
+// becomes visible/focused/back online again (exactly when a dropped
+// connection is most likely to have gone unnoticed).
+setInterval(loadItems, REFRESH_INTERVAL_MS);
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") loadItems(); });
+window.addEventListener("focus", loadItems);
+window.addEventListener("online", loadItems);
 setInterval(sweepExpired, SWEEP_INTERVAL_MS);
 
 // Boot

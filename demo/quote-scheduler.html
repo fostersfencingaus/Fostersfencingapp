@@ -3490,9 +3490,15 @@
       dragging = false;
       startX = null;
       if (axis !== "x") { axis = null; return; }
+      axis = null;
+      // A real finger tap routinely drifts a few px past the 6px deadzone
+      // above, which was enough on its own to misclassify the gesture as a
+      // horizontal drag and swallow the click that followed -- including
+      // taps on the quote-id link. Only treat it as a drag (and suppress
+      // the click) once the card has actually moved a visible amount.
+      if (Math.abs(currentX - baseX) < 10) return;
       justDragged = true;
       if (currentX <= -OPEN_THRESHOLD_PX) open(); else close();
-      axis = null;
     }
 
     card.addEventListener("touchstart", (e) => {

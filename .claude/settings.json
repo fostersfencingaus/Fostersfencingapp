@@ -9,6 +9,7 @@
       "mcp__Claude_Code_Remote__list_triggers",
       "Bash(git fetch *)",
       "Bash(git push -u origin claude/invoice2go-client-list-4j0iku:*)",
+      "Bash(git *)",
       "mcp__Vercel__get_deployment",
       "mcp__Vercel__list_deployments"
     ]

@@ -34,11 +34,11 @@ Go-ahead intent (near a quote number): /(go\s*ahead|proceed|accept(ed)?|book (us
 
 ## Current state (this demo)
 
-The list in `demo/quote-scheduler.html` is kept up to date by hand, from a recurring Gmail search over `fostersfencing.aus@gmail.com` (checked periodically, not yet a live integration — see below). Every row in it is a real match.
+The list in `demo/quote-scheduler.html` is kept up to date by hand, from a recurring check of the business mailbox `fostersfencing@hotmail.com.au`, read **directly** through the Microsoft 365 (Outlook) connector — not via forwarded copies in Gmail, and not yet a live integration (see below). Every row in it is a real match.
 
-Note: most day-to-day enquiry and reply traffic currently lands in `fostersfencing@hotmail.com.au`, a separate mailbox, and only reaches this Gmail account when manually forwarded. A real integration needs to watch whichever mailbox Invoice2go and clients actually reply to.
+Note: the business mailbox was always meant to be the source. It used to be read through manual forwards into `fostersfencing.aus@gmail.com` only because Hotmail could not be connected at the time. Mail now arrives with its real sender (e.g. `fostersfencing@cloudmail.net.au` for website enquiries, `hello@notifications.invoice2go.com` for approvals) rather than as a `FW:` copy.
 
-**Search breadth:** the recurring check does not pre-filter to `from:cloudmail.net.au` / `from:invoice2go` / `from:hipages` / `subject:"Fosters Enquiry"` — those cover the common cases, but a client go-ahead reply (rule 2/3 above) or an oddly-formatted quote request can land with a different sender or subject once forwarded. Every new message since the last check gets read and classified by content against the rules above, rather than being filtered out up front by sender/subject.
+**Search breadth:** the recurring check does not pre-filter to `from:cloudmail.net.au` / `from:invoice2go` / `from:hipages` / `subject:"Fosters Enquiry"` — those cover the common cases, but a client go-ahead reply (rule 2/3 above) or an oddly-formatted quote request can land with a different sender or subject. Every new message since the last check gets read and classified by content against the rules above, rather than being filtered out up front by sender/subject.
 
 ## Detecting new enquiries (for `demo/enquiries.html`)
 
@@ -64,7 +64,7 @@ Separate from approvals, an **enquiry** is a prospective client asking for a quo
 
 To make this run unattended instead of being populated by hand:
 
-- **Gmail access**: a Google Cloud project with the Gmail API enabled, OAuth consent screen, and a stored refresh token for the mailbox being watched (needs to be set up once in Google Cloud Console — this can't be done on the user's behalf).
-- **A poll or push trigger**: either a scheduled job (e.g. every 15–60 min) calling `users.messages.list` with a query like `newer_than:1d (from:notifications.invoice2go.com OR -in:sent)`, or a Gmail push notification via Pub/Sub for near-real-time updates.
+- **Outlook/Hotmail access**: a Microsoft Graph (Mail.Read) connection to `fostersfencing@hotmail.com.au` — currently provided by the Microsoft 365 connector, which the owner has to authorise once from their Microsoft account.
+- **A poll or push trigger**: either a scheduled job (e.g. every 15–60 min) listing Inbox messages received since the last poll (Microsoft Graph `GET /me/mailFolders/inbox/messages` with a `receivedDateTime` filter), or a Graph change-notification subscription for near-real-time updates.
 - **A small store** (even a spreadsheet or SQLite table) keyed by quote number, tracking: source email id, detected date, scheduled date/time (once picked), and calendar event id (once created) — so the same email doesn't produce a duplicate list entry or duplicate calendar event on the next poll.
 - **Calendar write**: either keep the current "click to open a pre-filled Google Calendar event" pattern (no extra OAuth scope needed beyond the user having Calendar open in their browser), or add the `calendar.events` scope to create events directly — the user asked to keep the manual date-pick step for now rather than auto-creating events.

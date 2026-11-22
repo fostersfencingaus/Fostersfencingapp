@@ -78,3 +78,7 @@ The Invoice2go "Estimate QT##### was approved" notification does not name the cl
 3. On the quote entry set `who` to "Name — phone — email", `location` to "street, Suburb, WA, postcode" (no postcode if the estimate has none), and append the job summary and total to `note`.
 4. Write the same `who`/`location`/`note` to the shared overrides (`POST /api/overrides` with `{"key":"QT#####","override":{...}}`) so every device shows them and any older screenshot typos are corrected.
 5. If no sent estimate exists, leave the placeholder and flag it.
+
+## View-estimate link (`viewUrl`) for every quote
+
+Every quote with a quote number should carry a `viewUrl` so its number opens the estimate. For Invoice2go approvals the link is the notification's View-estimate button. For client go-aheads that did not click Approve (source "client-reply"), find the estimate email that was sent to that client: search Sent Items for the quote number (or the client's email address), take the newest "Estimate QT##### · Fosters Fencing" message, and read the `<a href="https://r.2go.com/XXXXXXXX">View estimate</a>` link from its body. Set `viewUrl` to that link. Entries with no quote number only get a link if the estimate can be matched by the client's email address.

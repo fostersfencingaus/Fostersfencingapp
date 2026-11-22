@@ -68,3 +68,13 @@ To make this run unattended instead of being populated by hand:
 - **A poll or push trigger**: either a scheduled job (e.g. every 15–60 min) listing Inbox messages received since the last poll (Microsoft Graph `GET /me/mailFolders/inbox/messages` with a `receivedDateTime` filter), or a Graph change-notification subscription for near-real-time updates.
 - **A small store** (even a spreadsheet or SQLite table) keyed by quote number, tracking: source email id, detected date, scheduled date/time (once picked), and calendar event id (once created) — so the same email doesn't produce a duplicate list entry or duplicate calendar event on the next poll.
 - **Calendar write**: either keep the current "click to open a pre-filled Google Calendar event" pattern (no extra OAuth scope needed beyond the user having Calendar open in their browser), or add the `calendar.events` scope to create events directly — the user asked to keep the manual date-pick step for now rather than auto-creating events.
+
+## Filling in client details for approved jobs
+
+The Invoice2go "Estimate QT##### was approved" notification does not name the client. For every approval, find the estimate that was originally sent and take the details from it instead of from a screenshot:
+
+1. Search the mailbox's **Sent Items** folder for the quote number (`folderName: "Sent Items"`, `query: "QT#####"`) and take the newest message with the subject "Estimate QT##### · Fosters Fencing".
+2. Read that message, then read its `estimate_qt#####.pdf` attachment. The text reads "Quote For: Name, email, street, suburb, WA, postcode, phone, Quote No ..." followed by the price lines, total and any extra information (colour etc.).
+3. On the quote entry set `who` to "Name — phone — email", `location` to "street, Suburb, WA, postcode" (no postcode if the estimate has none), and append the job summary and total to `note`.
+4. Write the same `who`/`location`/`note` to the shared overrides (`POST /api/overrides` with `{"key":"QT#####","override":{...}}`) so every device shows them and any older screenshot typos are corrected.
+5. If no sent estimate exists, leave the placeholder and flag it.
